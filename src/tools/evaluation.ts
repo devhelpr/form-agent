@@ -40,7 +40,7 @@ export async function evaluate_work(
       file_contents[file] = content;
       files_analyzed.push(file);
     } catch (err) {
-      console.log(`[DEBUG] Could not read file ${file}:`, err);
+      // File read error - silently continue
       // Continue processing other files even if one fails
     }
   }
@@ -74,7 +74,7 @@ export async function evaluate_work(
       userGoal
     );
   } catch (err) {
-    console.log(`[DEBUG] Analysis failed:`, err);
+    // Analysis failed - will use fallback
     // Return a default analysis if the analysis function fails
     analysis = {
       overall_score: 50,
@@ -202,7 +202,7 @@ async function analyzeFiles(
       } else {
         // Fallback to basic analysis if LLM call fails
         console.log(
-          `[DEBUG] LLM evaluation failed for ${file}, using fallback analysis`
+          `LLM evaluation failed for ${file}, using fallback analysis`
         );
         const fallbackAnalysis = getFallbackAnalysis(file, content);
         total_score += fallbackAnalysis.score;
@@ -213,7 +213,7 @@ async function analyzeFiles(
         );
       }
     } catch (error) {
-      console.log(`[DEBUG] Error evaluating ${file}:`, error);
+      // Error evaluating file - will use fallback
       // Fallback to basic analysis
       const fallbackAnalysis = getFallbackAnalysis(file, content);
       total_score += fallbackAnalysis.score;

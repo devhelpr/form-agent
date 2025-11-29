@@ -44,32 +44,20 @@ export async function write_patch(patch: string) {
     .replace(/\\"/g, '"')
     .replace(/\\\\/g, "\\");
 
-  console.log(
-    "[DEBUG] write_patch - patch preview:",
-    unescapedPatch.substring(0, 100)
-  );
-
   // Parse full-file format
   // Split on === file: at the beginning of lines or at the start
   const blocks = unescapedPatch.split(/(?:^|\n)=== file:/);
-
-  console.log("[DEBUG] write_patch - full-file blocks found:", blocks.length);
 
   if (blocks.length > 1) {
     // Skip the first empty block
     for (let i = 1; i < blocks.length; i++) {
       const block = blocks[i];
-      console.log(
-        `[DEBUG] Processing full-file block ${i}:`,
-        block.substring(0, 50) + "..."
-      );
 
       const lines = block.split("\n");
       const filePathLine = lines[0];
 
       // Extract filename, handling cases like "path/file.ts ==="
       const file = filePathLine.replace(/\s*===\s*$/, "").trim();
-      console.log(`[DEBUG] Extracted filename: "${file}"`);
 
       // Extract content between header and end marker more carefully
       const endMarkerIndex = block.indexOf("=== end ===");
@@ -90,20 +78,13 @@ export async function write_patch(patch: string) {
           : contentBeforeEnd;
         // The content should now preserve the original newline structure including trailing newlines
       }
-      console.log(
-        `[DEBUG] File content (${body.length} chars):`,
-        body.substring(0, 100) + "..."
-      );
-
       // Create directory if it doesn't exist
       const dir = path.dirname(file);
       if (dir !== "." && dir !== "") {
-        console.log(`[DEBUG] Creating directory: "${dir}"`);
         await fs.mkdir(dir, { recursive: true });
       }
 
       // Write the file
-      console.log(`[DEBUG] Writing file: "${file}"`);
       await fs.writeFile(file, body, "utf8");
       replaced.push(file);
     }

@@ -184,33 +184,12 @@ async function main() {
     },
   };
 
-  console.log("\n🚀 Starting agent with the following configuration:");
-  console.log(`📝 Prompt: ${userPrompt}`);
-  console.log(`🔄 Max steps: ${maxSteps}`);
-  console.log(`📝 Max writes: ${maxWrites}`);
-  console.log(`⚡ Max commands: ${maxCommands}`);
-  console.log(
-    `🧪 Test command: ${testCommand.cmd} ${testCommand.args.join(" ")}`
-  );
-  console.log(
-    `⏱️  Timeout: ${
-      timeoutSeconds === 0 ? "disabled" : `${timeoutSeconds} seconds`
-    }`
-  );
-  console.log(
-    `📊 Console logging: ${logging.enabled ? "enabled" : "disabled"}`
-  );
-  console.log(
-    `📁 File logging: ${
-      logging.fileLogging.enabled
-        ? `enabled (${logging.fileLogging.filePath})`
-        : "disabled"
-    }`
-  );
-  console.log(
-    `🤖 AI Provider: ${provider}${options.model ? ` (${options.model})` : ""}`
-  );
-  console.log("");
+  // Show compact startup info
+  const { log: clackLog } = await import("@clack/prompts");
+  clackLog.info(`Starting form generation agent`);
+  clackLog.info(`Prompt: ${userPrompt.substring(0, 60)}${userPrompt.length > 60 ? "..." : ""}`);
+  clackLog.info(`Max steps: ${maxSteps} • Provider: ${provider}${options.model ? ` (${options.model})` : ""}`);
+  console.log(""); // Empty line for spacing
 
   // Set up configurable timeout if specified
   let timeoutId: NodeJS.Timeout | null = null;
@@ -257,12 +236,15 @@ async function main() {
 
     // Check if this was a fatal error
     if ((result as any).fatal) {
-      console.error("\n❌ Agent terminated due to fatal error");
+      const { log: clackLog } = await import("@clack/prompts");
+      clackLog.error("Agent terminated due to fatal error");
       await shutdownObservability();
       process.exit(1);
     }
 
-    console.log("\n✅ Agent completed successfully!");
+    const { log: clackLog } = await import("@clack/prompts");
+    console.log(""); // Empty line for spacing
+    clackLog.success("Agent completed successfully!");
 
     // Handle output file if specified
     const outputFile = options.outputFile || "form.json";

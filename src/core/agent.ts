@@ -28,6 +28,7 @@ import {
   isFatalSchemaError,
   getFatalSchemaErrorMessage,
 } from "../utils/error-detection";
+import { ui } from "../utils/ui";
 
 // Validation function to ensure decision structure is correct
 function validateDecision(parsed: any): Decision | null {
@@ -118,7 +119,21 @@ export async function runCodingAgent(
   let writes = 0,
     cmds = 0;
 
-  log(logConfig, "step", `Starting coding agent with goal: ${userGoal}`, {
+  // Suppress console logging, only log to file if enabled
+  const silentLogConfig: LogConfig = {
+    ...logConfig,
+    enabled: false, // Disable console logging
+    logSteps: false,
+    logToolCalls: false,
+    logToolResults: false,
+    logDecisions: false,
+    logTranscript: false,
+    logErrors: false, // Errors will be shown via UI
+    logPromptContext: false,
+    fileLogging: logConfig.fileLogging, // Keep file logging if enabled
+  };
+
+  log(silentLogConfig, "step", `Starting coding agent with goal: ${userGoal}`, {
     maxSteps,
     caps,
   });
@@ -207,7 +222,8 @@ When ready to speak to the user, choose final_answer.
       }
 
       if (isComplexTask) {
-        log(logConfig, "step", "Complex task detected, creating execution plan");
+        log(silentLogConfig, "step", "Complex task detected, creating execution plan");
+        ui.showInfo("Creating execution plan...");
 
         const planDecision: Decision = {
           action: "create_plan",
@@ -258,7 +274,7 @@ When ready to speak to the user, choose final_answer.
           opts?.aiProvider
         );
       } else {
-        log(logConfig, "step", "Simple task detected, skipping execution plan creation");
+        log(silentLogConfig, "step", "Simple task detected, skipping execution plan creation");
         if (createPlanSpan) {
           createPlanSpan.setAttribute("agent.planning.plan.skip_reason", "task_not_complex");
           createPlanSpan.setAttribute("agent.planning.plan.user_goal_length", userGoal.length);
@@ -276,11 +292,11 @@ When ready to speak to the user, choose final_answer.
   });
 
   for (let step = 1; step <= maxSteps; step++) {
-    log(logConfig, "step", `=== Step ${step}/${maxSteps} ===`, {
+    log(silentLogConfig, "step", `=== Step ${step}/${maxSteps} ===`, {
       writes,
       cmds,
     });
-    log(logConfig, "transcript", "Current transcript length", {
+    log(silentLogConfig, "transcript", "Current transcript length", {
       messageCount: transcript.length,
     });
 
@@ -332,14 +348,13 @@ When ready to speak to the user, choose final_answer.
       // Check if this is a fatal schema error that should cause exit
       if (isFatalSchemaError(error)) {
         await logError(
-          logConfig,
+          silentLogConfig,
           "Fatal schema error detected - exiting application",
           error
         );
 
         // Get token statistics
         const tokenStats = getTokenStats();
-        displayTokenSummary(tokenStats);
 
         // Record error span
         await withSpan("agent.error", async (errorSpan) => {
@@ -355,10 +370,11 @@ When ready to speak to the user, choose final_answer.
           }
         });
 
-        // Exit the application
-        console.error("\n❌ " + getFatalSchemaErrorMessage(error));
-        console.error("\nThis is a fatal error that cannot be recovered from.");
-        console.error("Please check your schema configuration and try again.\n");
+        // Show error in UI
+        ui.showError(
+          "Fatal Schema Error",
+          getFatalSchemaErrorMessage(error) + "\n\nThis is a fatal error that cannot be recovered from.\nPlease check your schema configuration and try again."
+        );
 
         if (span) {
           span.setAttribute("agent.completed", false);
@@ -373,13 +389,12 @@ When ready to speak to the user, choose final_answer.
         };
       }
 
-      await logError(logConfig, "AI API call failed after all retries", error);
+      await logError(silentLogConfig, "AI API call failed after all retries", error);
 
       // Get token statistics even on error
       const tokenStats = getTokenStats();
 
-      // Display token summary even on error
-      displayTokenSummary(tokenStats);
+      // Don't display token summary on error - keep UI clean
 
       // Error is already recorded by withSpan's error handling and logError
       // Add error info to agent.run span via a nested span
@@ -492,7 +507,15 @@ When ready to speak to the user, choose final_answer.
       } as Decision;
     }
 
-    log(logConfig, "decision", `Agent decided: ${decision.action}`, {
+    // Show step progress in UI
+    ui.startStep({
+      step,
+      maxSteps,
+      action: decision.action,
+      status: "running",
+    });
+
+    log(silentLogConfig, "decision", `Agent decided: ${decision.action}`, {
       decision: decision,
     });
 
@@ -511,7 +534,8 @@ When ready to speak to the user, choose final_answer.
     });
 
     if (decision.action === "final_answer") {
-      log(logConfig, "step", "Agent chose final_answer - generating summary");
+      ui.updateStep({ action: "final_answer", toolName: "Generating summary" });
+      log(silentLogConfig, "step", "Agent chose final_answer - generating summary");
       // Produce a succinct status + next steps for the user
       let final;
       try {
@@ -603,13 +627,12 @@ When ready to speak to the user, choose final_answer.
       // Get final token statistics
       const tokenStats = getTokenStats();
 
-      log(logConfig, "step", "Agent completed successfully", {
+      log(silentLogConfig, "step", "Agent completed successfully", {
         ...result,
         tokenUsage: tokenStats,
       });
 
-      // Display token summary
-      displayTokenSummary(tokenStats);
+      ui.completeStep({ success: true, message: "Completed successfully" });
 
       if (span) {
         span.setAttribute("agent.completed", true);
@@ -625,109 +648,99 @@ When ready to speak to the user, choose final_answer.
     }
 
     // Execute appropriate tool handler
-    if (decision.action === "read_files") {
-      await handleReadFiles(decision, transcript, logConfig);
-      continue;
+    let stepSuccess = true;
+    let stepMessage = "";
+
+    try {
+      if (decision.action === "read_files") {
+        await handleReadFiles(decision, transcript, silentLogConfig);
+        stepMessage = "Files read";
+      } else if (decision.action === "search_repo") {
+        await handleSearchRepo(decision, transcript, silentLogConfig);
+        stepMessage = "Search completed";
+      } else if (decision.action === "write_patch") {
+        writes = await handleWritePatch(
+          decision,
+          transcript,
+          writes,
+          caps,
+          silentLogConfig
+        );
+        stepMessage = "File written";
+      } else if (decision.action === "run_cmd") {
+        cmds = await handleRunCmd(
+          decision,
+          transcript,
+          cmds,
+          caps,
+          testCmd,
+          silentLogConfig
+        );
+        stepMessage = "Command executed";
+      } else if (decision.action === "evaluate_work") {
+        await handleEvaluateWork(decision, transcript, silentLogConfig);
+        stepMessage = "Evaluation completed";
+      } else if (decision.action === "create_plan") {
+        await handleCreatePlan(decision, transcript, silentLogConfig, opts?.aiProvider);
+        stepMessage = "Plan created";
+      } else if (decision.action === "analyze_project") {
+        await handleAnalyzeProject(
+          decision,
+          transcript,
+          silentLogConfig,
+          opts?.aiProvider
+        );
+        stepMessage = "Project analyzed";
+      } else if (decision.action === "validate_form_json") {
+        await handleValidateFormJson(decision, transcript, silentLogConfig);
+        stepMessage = "Validation completed";
+      } else if (decision.action === "generate_expression") {
+        await handleGenerateExpression(
+          decision,
+          transcript,
+          silentLogConfig,
+          opts?.aiProvider
+        );
+        stepMessage = "Expression generated";
+      } else if (decision.action === "generate_translations") {
+        await handleGenerateTranslations(
+          decision,
+          transcript,
+          silentLogConfig,
+          opts?.aiProvider
+        );
+        stepMessage = "Translations generated";
+      } else if (decision.action === "generate_form_json") {
+        await handleGenerateFormJson(
+          decision,
+          transcript,
+          silentLogConfig,
+          opts?.aiProvider
+        );
+        stepMessage = "Form JSON generated";
+      } else {
+        stepSuccess = false;
+        stepMessage = "Unknown action";
+      }
+
+      ui.completeStep({ success: stepSuccess, message: stepMessage });
+    } catch (error) {
+      stepSuccess = false;
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      ui.completeStep({ success: false, message: errorMessage });
+      ui.showError(`Step ${step} failed`, errorMessage);
+      // Continue to next step
     }
 
-    if (decision.action === "search_repo") {
-      await handleSearchRepo(decision, transcript, logConfig);
-      continue;
-    }
-
-    if (decision.action === "write_patch") {
-      writes = await handleWritePatch(
-        decision,
-        transcript,
-        writes,
-        caps,
-        logConfig
-      );
-      continue;
-    }
-
-    if (decision.action === "run_cmd") {
-      cmds = await handleRunCmd(
-        decision,
-        transcript,
-        cmds,
-        caps,
-        testCmd,
-        logConfig
-      );
-      continue;
-    }
-
-    if (decision.action === "evaluate_work") {
-      await handleEvaluateWork(decision, transcript, logConfig);
-      continue;
-    }
-
-    if (decision.action === "create_plan") {
-      await handleCreatePlan(decision, transcript, logConfig, opts?.aiProvider);
-      continue;
-    }
-
-    if (decision.action === "analyze_project") {
-      await handleAnalyzeProject(
-        decision,
-        transcript,
-        logConfig,
-        opts?.aiProvider
-      );
-      continue;
-    }
-
-    if (decision.action === "validate_form_json") {
-      await handleValidateFormJson(decision, transcript, logConfig);
-      continue;
-    }
-
-    if (decision.action === "generate_expression") {
-      await handleGenerateExpression(
-        decision,
-        transcript,
-        logConfig,
-        opts?.aiProvider
-      );
-      continue;
-    }
-
-    if (decision.action === "generate_translations") {
-      await handleGenerateTranslations(
-        decision,
-        transcript,
-        logConfig,
-        opts?.aiProvider
-      );
-      continue;
-    }
-
-    if (decision.action === "generate_form_json") {
-      await handleGenerateFormJson(
-        decision,
-        transcript,
-        logConfig,
-        opts?.aiProvider
-      );
-      continue;
-    }
-
-    // Unknown action
-    log(logConfig, "step", "Unknown action encountered", {
-      action: (decision as any).action,
-    });
-    transcript.push({
-      role: "assistant",
-      content: `ERROR: Unknown action ${JSON.stringify(decision)}`,
-    });
+    // Unknown action - already handled in try/catch above
   }
 
     const result = {
       steps: maxSteps,
       message: "Max steps reached without finalization.",
     };
-    log(logConfig, "step", "Agent reached max steps without completion", result);
+    log(silentLogConfig, "step", "Agent reached max steps without completion", result);
+    ui.showWarning("Max steps reached without completion");
     
     if (span) {
       span.setAttribute("agent.completed", false);

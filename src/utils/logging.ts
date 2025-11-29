@@ -89,6 +89,8 @@ function shouldLogCategory(category: string, config: LogConfig): boolean {
       return config.logErrors ?? true;
     case "prompt-context":
       return config.logPromptContext ?? true;
+    case "debug":
+      return false; // Never log debug to console
     default:
       return true; // Log unknown categories by default
   }
