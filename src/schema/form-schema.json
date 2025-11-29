@@ -1,0 +1,1189 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://prompttoform.ai/schema/v0.2/schema.json",
+  "title": "UI Schema with Multi-Language Support",
+  "description": "Extended schema for describing complex UIs with multi-language capabilities, including websites, forms, decision trees, and CRUD operations.",
+  "type": "object",
+  "properties": {
+    "app": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/page"
+          }
+        },
+        "dataSources": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dataSource"
+          }
+        },
+        "thankYouPage": {
+          "$ref": "#/$defs/thankYouPage"
+        }
+      },
+      "required": ["title", "pages"]
+    },
+    "translations": {
+      "type": "object",
+      "description": "Multi-language dictionary for all form texts and UI elements.",
+      "patternProperties": {
+        "^[a-z]{2}(-[A-Z]{2})?$": {
+          "$ref": "#/$defs/translationEntry"
+        }
+      },
+      "additionalProperties": false
+    },
+    "defaultLanguage": {
+      "type": "string",
+      "description": "The default language code for the form (e.g., 'en').",
+      "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+      "default": "en"
+    },
+    "supportedLanguages": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z]{2}(-[A-Z]{2})?$"
+      },
+      "description": "List of supported language codes for the form.",
+      "default": ["en"]
+    },
+    "languageDetails": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": {
+            "type": "string",
+            "pattern": "^[a-z]{2}(-[A-Z]{2})?$",
+            "description": "ISO 639-1 language code"
+          },
+          "name": {
+            "type": "string",
+            "description": "English name of the language"
+          },
+          "nativeName": {
+            "type": "string",
+            "description": "How the language is written in its native script"
+          }
+        },
+        "required": ["code", "name", "nativeName"]
+      },
+      "description": "Detailed information about each supported language"
+    }
+  },
+  "required": ["app"],
+  "$defs": {
+    "page": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "route": {
+          "type": "string"
+        },
+        "layout": {
+          "type": "string",
+          "enum": ["grid", "flex", "vertical", "horizontal"]
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        },
+        "isEndPage": {
+          "type": "boolean"
+        },
+        "branches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/branch"
+          }
+        },
+        "nextPage": {
+          "type": "string"
+        }
+      },
+      "required": ["id", "title", "route", "components"]
+    },
+    "component": {
+      "type": "object",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/inputComponent"
+        },
+        {
+          "$ref": "#/$defs/selectComponent"
+        },
+        {
+          "$ref": "#/$defs/checkboxComponent"
+        },
+        {
+          "$ref": "#/$defs/radioComponent"
+        },
+        {
+          "$ref": "#/$defs/textareaComponent"
+        },
+        {
+          "$ref": "#/$defs/buttonComponent"
+        },
+        {
+          "$ref": "#/$defs/tableComponent"
+        },
+        {
+          "$ref": "#/$defs/formComponent"
+        },
+        {
+          "$ref": "#/$defs/sectionComponent"
+        },
+        {
+          "$ref": "#/$defs/arrayComponent"
+        },
+        {
+          "$ref": "#/$defs/dateComponent"
+        },
+        {
+          "$ref": "#/$defs/textComponent"
+        },
+        {
+          "$ref": "#/$defs/sliderRangeComponent"
+        }
+      ]
+    },
+    "arrayItem": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        }
+      },
+      "required": ["id", "components"]
+    },
+    "dataSource": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["rest", "graphql"]
+        },
+        "url": {
+          "type": "string"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["GET", "POST", "PUT", "DELETE"]
+        },
+        "query": {
+          "type": "string"
+        },
+        "params": {
+          "type": "object"
+        },
+        "responseMapping": {
+          "type": "object",
+          "additionalProperties": true
+        }
+      },
+      "required": ["id", "type", "url"]
+    },
+    "branch": {
+      "type": "object",
+      "properties": {
+        "condition": {
+          "type": "object",
+          "properties": {
+            "field": {
+              "type": "string"
+            },
+            "operator": {
+              "type": "string",
+              "enum": ["==", "!=", ">", "<", ">=", "<="]
+            },
+            "value": {
+              "type": "string"
+            }
+          },
+          "required": ["field", "operator", "value"]
+        },
+        "nextPage": {
+          "type": "string"
+        }
+      },
+      "required": ["condition", "nextPage"]
+    },
+    "componentBase": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "props": {
+          "$ref": "#/$defs/baseProps"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          }
+        },
+        "bindings": {
+          "type": "object",
+          "properties": {
+            "dataSource": {
+              "type": "string"
+            },
+            "field": {
+              "type": "string"
+            },
+            "onChange": {
+              "type": "string"
+            }
+          }
+        },
+        "validation": {
+          "type": "object",
+          "properties": {
+            "required": {
+              "type": "boolean"
+            },
+            "minLength": {
+              "type": "integer"
+            },
+            "maxLength": {
+              "type": "integer"
+            },
+            "pattern": {
+              "type": "string"
+            },
+            "minItems": {
+              "type": "integer"
+            },
+            "maxItems": {
+              "type": "integer"
+            },
+            "minDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "maxDate": {
+              "type": "string",
+              "format": "date"
+            },
+            "errorMessages": {
+              "type": "object",
+              "properties": {
+                "required": {
+                  "type": "string",
+                  "description": "Custom error message for required field validation"
+                },
+                "minLength": {
+                  "type": "string",
+                  "description": "Custom error message for minimum length validation. Use {minLength} placeholder."
+                },
+                "maxLength": {
+                  "type": "string",
+                  "description": "Custom error message for maximum length validation. Use {maxLength} placeholder."
+                },
+                "pattern": {
+                  "type": "string",
+                  "description": "Custom error message for pattern validation"
+                },
+                "minItems": {
+                  "type": "string",
+                  "description": "Custom error message for minimum items validation. Use {minItems} placeholder."
+                },
+                "maxItems": {
+                  "type": "string",
+                  "description": "Custom error message for maximum items validation. Use {maxItems} placeholder."
+                },
+                "minDate": {
+                  "type": "string",
+                  "description": "Custom error message for minimum date validation. Use {minDate} placeholder."
+                },
+                "maxDate": {
+                  "type": "string",
+                  "description": "Custom error message for maximum date validation. Use {maxDate} placeholder."
+                },
+                "min": {
+                  "type": "string",
+                  "description": "Custom error message for minimum value validation. Use {min} placeholder."
+                },
+                "max": {
+                  "type": "string",
+                  "description": "Custom error message for maximum value validation. Use {max} placeholder."
+                },
+                "invalidFormat": {
+                  "type": "string",
+                  "description": "Custom error message for invalid format validation"
+                },
+                "invalidEmail": {
+                  "type": "string",
+                  "description": "Custom error message for invalid email format"
+                },
+                "invalidNumber": {
+                  "type": "string",
+                  "description": "Custom error message for invalid number format"
+                },
+                "invalidDate": {
+                  "type": "string",
+                  "description": "Custom error message for invalid date format"
+                }
+              }
+            }
+          }
+        },
+        "visibilityConditions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "field": {
+                "type": "string"
+              },
+              "operator": {
+                "type": "string",
+                "enum": ["==", "!=", ">", "<", ">=", "<="]
+              },
+              "value": {}
+            },
+            "required": ["field", "operator", "value"]
+          }
+        },
+        "arrayItems": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/arrayItem"
+          }
+        }
+      },
+      "required": ["id"]
+    },
+    "inputComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "input"
+            },
+            "props": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/baseProps"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "inputType": {
+                      "type": "string",
+                      "enum": ["text", "email", "number", "password"]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "selectComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "select"
+            },
+            "props": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/baseProps"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string"
+                          },
+                          "value": {}
+                        },
+                        "required": ["label", "value"]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "checkboxComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "checkbox"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "radioComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "radio"
+            },
+            "props": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/baseProps"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "options": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "label": {
+                            "type": "string"
+                          },
+                          "value": {}
+                        },
+                        "required": ["label", "value"]
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "textareaComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "textarea"
+            },
+            "props": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/baseProps"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "rows": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "buttonComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "button"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "tableComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "table"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "formComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "form"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "sectionComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "section"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "arrayComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "array"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "dateComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "date"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "textComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "properties": {
+            "type": {
+              "const": "text"
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "sliderRangeComponent": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/componentBase"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "type": {
+              "const": "slider-range"
+            },
+            "props": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/baseProps"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "min": {
+                      "type": "number",
+                      "description": "Minimum value of the range"
+                    },
+                    "max": {
+                      "type": "number",
+                      "description": "Maximum value of the range"
+                    },
+                    "step": {
+                      "type": "number",
+                      "description": "Step size for value increments",
+                      "default": 1
+                    },
+                    "showLabels": {
+                      "type": "boolean",
+                      "description": "Whether to show min/max labels",
+                      "default": true
+                    },
+                    "showValue": {
+                      "type": "boolean",
+                      "description": "Whether to show current values",
+                      "default": true
+                    },
+                    "mode": {
+                      "type": "string",
+                      "enum": ["single", "range"],
+                      "description": "Slider mode - single value or range selection",
+                      "default": "single"
+                    }
+                  }
+                }
+              ]
+            },
+            "validation": {
+              "allOf": [
+                {
+                  "$ref": "#/$defs/componentBase/properties/validation"
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "minRange": {
+                      "type": "number",
+                      "description": "Minimum range span"
+                    },
+                    "maxRange": {
+                      "type": "number",
+                      "description": "Maximum range span"
+                    },
+                    "minValueMin": {
+                      "type": "number",
+                      "description": "Minimum value for the minimum handle"
+                    },
+                    "minValueMax": {
+                      "type": "number",
+                      "description": "Maximum value for the minimum handle"
+                    },
+                    "maxValueMin": {
+                      "type": "number",
+                      "description": "Minimum value for the maximum handle"
+                    },
+                    "maxValueMax": {
+                      "type": "number",
+                      "description": "Maximum value for the maximum handle"
+                    },
+                    "errorMessages": {
+                      "type": "object",
+                      "properties": {
+                        "required": {
+                          "type": "string",
+                          "description": "Custom error message for required field validation"
+                        },
+                        "minRange": {
+                          "type": "string",
+                          "description": "Custom error message for minimum range validation. Use {minRange} placeholder."
+                        },
+                        "maxRange": {
+                          "type": "string",
+                          "description": "Custom error message for maximum range validation. Use {maxRange} placeholder."
+                        },
+                        "minValueMin": {
+                          "type": "string",
+                          "description": "Custom error message for minimum value validation. Use {minValueMin} placeholder."
+                        },
+                        "minValueMax": {
+                          "type": "string",
+                          "description": "Custom error message for maximum value validation. Use {minValueMax} placeholder."
+                        },
+                        "maxValueMin": {
+                          "type": "string",
+                          "description": "Custom error message for minimum value validation. Use {maxValueMin} placeholder."
+                        },
+                        "maxValueMax": {
+                          "type": "string",
+                          "description": "Custom error message for maximum value validation. Use {maxValueMax} placeholder."
+                        }
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "required": ["type"]
+        }
+      ]
+    },
+    "baseProps": {
+      "type": "object",
+      "properties": {
+        "placeholder": {
+          "type": "string"
+        },
+        "helperText": {
+          "type": "string"
+        },
+        "disabled": {
+          "type": "boolean"
+        },
+        "readOnly": {
+          "type": "boolean"
+        },
+        "className": {
+          "type": "string"
+        },
+        "expression": {
+          "type": "object",
+          "properties": {
+            "expression": {
+              "type": "string",
+              "description": "Expression string to evaluate for dynamic behavior"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "value",
+                "visibility",
+                "validation",
+                "disabled",
+                "required",
+                "label",
+                "helperText"
+              ],
+              "description": "How the expression affects the field",
+              "default": "value"
+            },
+            "dependencies": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Field IDs that this expression depends on"
+            },
+            "errorMessage": {
+              "type": "string",
+              "description": "Error message when expression evaluation fails"
+            },
+            "evaluateOnChange": {
+              "type": "boolean",
+              "description": "Whether to evaluate expression on every change",
+              "default": true
+            },
+            "debounceMs": {
+              "type": "number",
+              "description": "Debounce delay for expression evaluation in milliseconds",
+              "default": 100
+            }
+          },
+          "required": ["expression", "mode"]
+        }
+      },
+      "additionalProperties": true
+    },
+    "thankYouPage": {
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title displayed on the thank you page"
+        },
+        "message": {
+          "type": "string",
+          "description": "Main message displayed on the thank you page"
+        },
+        "components": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/component"
+          },
+          "description": "Optional form components to display on the thank you page"
+        },
+        "showRestartButton": {
+          "type": "boolean",
+          "description": "Whether to show a restart button to start a new form"
+        },
+        "customActions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "label": {
+                "type": "string",
+                "description": "Text displayed on the button"
+              },
+              "action": {
+                "type": "string",
+                "enum": ["restart", "custom"],
+                "description": "Type of action the button performs"
+              },
+              "customAction": {
+                "type": "string",
+                "description": "Custom action identifier (used when action is 'custom')"
+              },
+              "className": {
+                "type": "string",
+                "description": "CSS classes for styling the button"
+              }
+            },
+            "required": ["label", "action"]
+          },
+          "description": "Array of custom action buttons"
+        }
+      },
+      "description": "Configuration for the thank you page shown after form submission"
+    },
+    "translationEntry": {
+      "type": "object",
+      "description": "Translation entry for a specific language",
+      "properties": {
+        "app": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Translated app title"
+            }
+          }
+        },
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "description": "Page ID to match with original page"
+              },
+              "title": {
+                "type": "string",
+                "description": "Translated page title"
+              },
+              "components": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string",
+                      "description": "Component ID to match with original component"
+                    },
+                    "label": {
+                      "type": "string",
+                      "description": "Translated component label"
+                    },
+                    "props": {
+                      "type": "object",
+                      "properties": {
+                        "placeholder": {
+                          "type": "string",
+                          "description": "Translated placeholder text"
+                        },
+                        "helperText": {
+                          "type": "string",
+                          "description": "Translated helper text"
+                        },
+                        "options": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "label": {
+                                "type": "string",
+                                "description": "Translated option label"
+                              },
+                              "value": {
+                                "description": "Option value (unchanged)"
+                              }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "validation": {
+                      "type": "object",
+                      "properties": {
+                        "errorMessages": {
+                          "type": "object",
+                          "description": "Translated validation error messages",
+                          "patternProperties": {
+                            ".*": {
+                              "type": "string"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "thankYouPage": {
+          "type": "object",
+          "properties": {
+            "title": {
+              "type": "string",
+              "description": "Translated thank you page title"
+            },
+            "message": {
+              "type": "string",
+              "description": "Translated thank you page message"
+            },
+            "customActions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "Translated action button label"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "ui": {
+          "type": "object",
+          "description": "UI text translations",
+          "properties": {
+            "stepIndicator": {
+              "type": "string",
+              "description": "Step indicator text (supports {currentStep} and {totalSteps} placeholders)"
+            },
+            "nextButton": {
+              "type": "string",
+              "description": "Next button text"
+            },
+            "previousButton": {
+              "type": "string",
+              "description": "Previous button text"
+            },
+            "submitButton": {
+              "type": "string",
+              "description": "Submit button text"
+            },
+            "confirmSubmitButton": {
+              "type": "string",
+              "description": "Confirm submit button text"
+            },
+            "reviewConfirmButton": {
+              "type": "string",
+              "description": "Review confirm button text"
+            },
+            "submissionsTitle": {
+              "type": "string",
+              "description": "Form submissions title"
+            },
+            "noSubmissionsText": {
+              "type": "string",
+              "description": "No submissions text"
+            },
+            "thankYouTitle": {
+              "type": "string",
+              "description": "Thank you page title"
+            },
+            "thankYouMessage": {
+              "type": "string",
+              "description": "Thank you page message"
+            },
+            "restartButton": {
+              "type": "string",
+              "description": "Restart button text"
+            },
+            "multiPageInfo": {
+              "type": "string",
+              "description": "Multi-page info text (supports {pageCount} placeholder)"
+            },
+            "invalidFormData": {
+              "type": "string",
+              "description": "Invalid form data error message"
+            },
+            "noPagesDefined": {
+              "type": "string",
+              "description": "No pages defined error message"
+            },
+            "invalidPageIndex": {
+              "type": "string",
+              "description": "Invalid page index error message"
+            },
+            "noContentInSection": {
+              "type": "string",
+              "description": "No content in section error message"
+            },
+            "addItemButton": {
+              "type": "string",
+              "description": "Add item button text"
+            },
+            "removeItemButton": {
+              "type": "string",
+              "description": "Remove item button text"
+            },
+            "addAnotherButton": {
+              "type": "string",
+              "description": "Add another button text"
+            },
+            "requiredIndicator": {
+              "type": "string",
+              "description": "Required field indicator"
+            },
+            "requiredText": {
+              "type": "string",
+              "description": "Required field text"
+            },
+            "loadingText": {
+              "type": "string",
+              "description": "Loading text"
+            },
+            "submittingText": {
+              "type": "string",
+              "description": "Submitting text"
+            },
+            "requiredFieldAriaLabel": {
+              "type": "string",
+              "description": "Required field ARIA label"
+            },
+            "optionalFieldAriaLabel": {
+              "type": "string",
+              "description": "Optional field ARIA label"
+            },
+            "errorAriaLabel": {
+              "type": "string",
+              "description": "Error ARIA label"
+            },
+            "successAriaLabel": {
+              "type": "string",
+              "description": "Success ARIA label"
+            }
+          }
+        },
+        "errorMessages": {
+          "type": "object",
+          "description": "Default error message translations",
+          "properties": {
+            "required": {
+              "type": "string",
+              "description": "Required field error (supports {fieldLabel} placeholder)"
+            },
+            "minLength": {
+              "type": "string",
+              "description": "Minimum length error (supports {fieldLabel} and {minLength} placeholders)"
+            },
+            "maxLength": {
+              "type": "string",
+              "description": "Maximum length error (supports {fieldLabel} and {maxLength} placeholders)"
+            },
+            "pattern": {
+              "type": "string",
+              "description": "Pattern validation error (supports {fieldLabel} placeholder)"
+            },
+            "minItems": {
+              "type": "string",
+              "description": "Minimum items error (supports {fieldLabel} and {minItems} placeholders)"
+            },
+            "maxItems": {
+              "type": "string",
+              "description": "Maximum items error (supports {fieldLabel} and {maxItems} placeholders)"
+            },
+            "minDate": {
+              "type": "string",
+              "description": "Minimum date error (supports {fieldLabel} and {minDate} placeholders)"
+            },
+            "maxDate": {
+              "type": "string",
+              "description": "Maximum date error (supports {fieldLabel} and {maxDate} placeholders)"
+            },
+            "min": {
+              "type": "string",
+              "description": "Minimum value error (supports {fieldLabel} and {min} placeholders)"
+            },
+            "max": {
+              "type": "string",
+              "description": "Maximum value error (supports {fieldLabel} and {max} placeholders)"
+            },
+            "invalidFormat": {
+              "type": "string",
+              "description": "Invalid format error (supports {fieldLabel} placeholder)"
+            },
+            "invalidEmail": {
+              "type": "string",
+              "description": "Invalid email error (supports {fieldLabel} placeholder)"
+            },
+            "invalidNumber": {
+              "type": "string",
+              "description": "Invalid number error (supports {fieldLabel} placeholder)"
+            },
+            "invalidDate": {
+              "type": "string",
+              "description": "Invalid date error (supports {fieldLabel} placeholder)"
+            },
+            "generic": {
+              "type": "string",
+              "description": "Generic validation error (supports {fieldLabel} placeholder)"
+            }
+          }
+        }
+      }
+    }
+  }
+}

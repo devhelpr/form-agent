@@ -1,0 +1,307 @@
+#!/usr/bin/env node
+
+import { Command } from "commander";
+import { text, isCancel } from "@clack/prompts";
+import { runCodingAgent } from "./core/agent.js";
+import {
+  initObservability,
+  withSpan,
+  shutdownObservability,
+} from "./utils/observability.js";
+import { AIProvider } from "./ai/ai-client.js";
+
+const program = new Command();
+
+program
+  .name("form-agent")
+  .description(
+    "AI coding agent that iteratively edits a repository to satisfy your goals"
+  )
+  .version("1.0.0");
+
+// Add command line options
+program
+  .option(
+    "-p, --prompt <prompt>",
+    "Direct prompt to execute (skips interactive mode)"
+  )
+  .option(
+    "-m, --max-steps <number>",
+    "Maximum number of steps to execute",
+    "20"
+  )
+  .option("-w, --max-writes <number>", "Maximum number of file writes", "10")
+  .option(
+    "-c, --max-commands <number>",
+    "Maximum number of commands to run",
+    "20"
+  )
+  .option("--no-console-log", "Disable console logging")
+  .option("--file-log", "Enable file logging")
+  .option("--log-file <path>", "Log file path", "agent-log.txt")
+  .option(
+    "--test-command <command>",
+    "Test command to run (default: npm test --silent)"
+  )
+  .option("--test-args <args>", "Test command arguments (comma-separated)")
+  .option(
+    "--timeout <seconds>",
+    "Maximum time to wait for agent completion (default: 300 seconds, 0 = no timeout)",
+    "300"
+  )
+  .option(
+    "--provider <provider>",
+    "AI provider to use (openai, anthropic, google)",
+    "openai"
+  )
+  .option("--model <model>", "Specific model to use (optional)")
+  .parse();
+
+async function main() {
+  const options = program.opts();
+  // Initialize optional observability (no-op if disabled or deps missing)
+  await initObservability({ serviceName: "form-agent-cli" });
+
+  // Check for AI provider API key
+  const provider = options.provider as AIProvider;
+  const requiredEnvVars = {
+    openai: "OPENAI_API_KEY",
+    anthropic: "ANTHROPIC_API_KEY",
+    google: "GOOGLE_API_KEY",
+    ollama: null, // Ollama doesn't require an API key
+  };
+
+  const requiredEnvVar = requiredEnvVars[provider];
+  if (requiredEnvVar && !process.env[requiredEnvVar]) {
+    const error = new Error(`${requiredEnvVar} environment variable is not set`);
+    
+    // Record as error span before exiting
+    const { recordErrorSpan, getJaegerEndpoint } = await import("./utils/observability");
+    const jaegerEndpoint = getJaegerEndpoint() || "http://localhost:4318/v1/traces";
+    await recordErrorSpan(error, "missing_api_key", {
+      error_type: "missing_api_key",
+      provider,
+      required_env_var: requiredEnvVar,
+      jaeger_endpoint: jaegerEndpoint,
+    });
+    
+    console.error(
+      `❌ Error: ${requiredEnvVar} environment variable is not set`
+    );
+    console.log(`Please set your ${provider} API key:`);
+    console.log(`export ${requiredEnvVar}="your-api-key-here"`);
+    console.log("\nSupported providers:");
+    console.log('  - OpenAI: export OPENAI_API_KEY="your-key"');
+    console.log('  - Anthropic: export ANTHROPIC_API_KEY="your-key"');
+    console.log('  - Google: export GOOGLE_API_KEY="your-key"');
+    console.log("  - Ollama: No API key required (runs locally)");
+    
+    // Shutdown observability to flush the error span
+    await shutdownObservability();
+    process.exit(1);
+  }
+
+  let userPrompt: string;
+
+  // Get user prompt
+  if (options.prompt) {
+    userPrompt = options.prompt;
+    console.log(`🎯 Using prompt: ${userPrompt}`);
+  } else {
+    // Interactive mode
+    console.log("🤖 Agent Loop - AI Coding Agent");
+    console.log(
+      "This agent will help you accomplish coding tasks by iteratively editing your repository.\n"
+    );
+    try {
+      const promptResult = await text({
+        message: "What would you like the agent to help you with?",
+        validate: (input: string) => {
+          if (!input.trim()) {
+            return "Please enter a prompt describing what you want to accomplish";
+          }
+          return undefined;
+        },
+      });
+
+      if (isCancel(promptResult)) {
+        console.log("👋 until next time!");
+        process.exit(0);
+      }
+
+      userPrompt = promptResult;
+    } catch (error) {
+      // Rethrow unknown errors
+      throw error;
+    }
+  }
+  // Parse numeric options
+  const maxSteps = parseInt(options.maxSteps, 10);
+  const maxWrites = parseInt(options.maxWrites, 10);
+  const maxCommands = parseInt(options.maxCommands, 10);
+  const timeoutSeconds = parseInt(options.timeout, 10);
+
+  // Parse test command
+  let testCommand = { cmd: "npm", args: ["test", "--silent"] };
+  if (options.testCommand) {
+    testCommand.cmd = options.testCommand;
+    if (options.testArgs) {
+      testCommand.args = options.testArgs
+        .split(",")
+        .map((arg: string) => arg.trim());
+    }
+  }
+
+  // Configure logging
+  const logging = {
+    enabled: options.consoleLog !== false,
+    fileLogging: {
+      enabled: options.fileLog || false,
+      filePath: options.logFile,
+    },
+  };
+
+  console.log("\n🚀 Starting agent with the following configuration:");
+  console.log(`📝 Prompt: ${userPrompt}`);
+  console.log(`🔄 Max steps: ${maxSteps}`);
+  console.log(`📝 Max writes: ${maxWrites}`);
+  console.log(`⚡ Max commands: ${maxCommands}`);
+  console.log(
+    `🧪 Test command: ${testCommand.cmd} ${testCommand.args.join(" ")}`
+  );
+  console.log(
+    `⏱️  Timeout: ${
+      timeoutSeconds === 0 ? "disabled" : `${timeoutSeconds} seconds`
+    }`
+  );
+  console.log(
+    `📊 Console logging: ${logging.enabled ? "enabled" : "disabled"}`
+  );
+  console.log(
+    `📁 File logging: ${
+      logging.fileLogging.enabled
+        ? `enabled (${logging.fileLogging.filePath})`
+        : "disabled"
+    }`
+  );
+  console.log(
+    `🤖 AI Provider: ${provider}${options.model ? ` (${options.model})` : ""}`
+  );
+  console.log("");
+
+  // Set up configurable timeout if specified
+  let timeoutId: NodeJS.Timeout | null = null;
+  if (timeoutSeconds > 0) {
+    timeoutId = setTimeout(async () => {
+      console.log(
+        `⚠️  Process timeout after ${timeoutSeconds} seconds - forcing exit`
+      );
+      await shutdownObservability();
+      process.exit(0);
+    }, timeoutSeconds * 1000);
+  }
+
+  try {
+    const result = await withSpan("agent.cli.run", async (span) => {
+      if (span) {
+        span.setAttribute("agent.cli.user_prompt", userPrompt.substring(0, 500));
+        span.setAttribute("agent.cli.user_prompt_length", userPrompt.length);
+        span.setAttribute("agent.cli.max_steps", maxSteps);
+        span.setAttribute("agent.cli.max_writes", maxWrites);
+        span.setAttribute("agent.cli.max_commands", maxCommands);
+        span.setAttribute("agent.cli.provider", provider);
+        span.setAttribute("agent.cli.model", options.model || "default");
+        span.setAttribute("agent.cli.test_command", JSON.stringify(testCommand));
+        span.setAttribute("agent.cli.timeout_seconds", timeoutSeconds);
+      }
+      return await runCodingAgent(userPrompt, {
+        maxSteps,
+        hardCaps: {
+          maxWrites,
+          maxCmds: maxCommands,
+        },
+        testCommand,
+        logging,
+        aiProvider: provider,
+        aiModel: options.model,
+      });
+    });
+
+    // Clear timeout since we completed successfully
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+
+    console.log("\n✅ Agent completed successfully!");
+    console.log("📊 Final result:", result);
+
+    // Shutdown observability to flush traces before exit
+    await shutdownObservability();
+    process.exit(0);
+  } catch (error) {
+    // Clear timeout on error
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+    console.error("\n❌ Agent execution failed:", error);
+    
+    // Record as error span
+    const { recordErrorSpan } = await import("./utils/observability");
+    await recordErrorSpan(error, "agent_execution_failed", {
+      error_type: "agent_execution_failed",
+      user_prompt: userPrompt.substring(0, 200),
+    });
+    
+    // Shutdown observability to flush traces even on error
+    await shutdownObservability();
+    process.exit(1);
+  }
+}
+
+// Handle uncaught errors
+process.on("uncaughtException", async (error) => {
+  console.error("❌ Uncaught Exception:", error);
+  
+  // Record as error span
+  const { recordErrorSpan } = await import("./utils/observability");
+  await recordErrorSpan(error, "uncaught_exception", {
+    error_type: "uncaught_exception",
+    process_pid: process.pid,
+  });
+  
+  await shutdownObservability();
+  process.exit(1);
+});
+
+process.on("unhandledRejection", async (reason, promise) => {
+  console.error("❌ Unhandled Rejection:", reason);
+  
+  // Record as error span
+  const { recordErrorSpan } = await import("./utils/observability");
+  await recordErrorSpan(
+    reason instanceof Error ? reason : new Error(String(reason)),
+    "unhandled_rejection",
+    {
+      error_type: "unhandled_rejection",
+      reason_type: typeof reason,
+      process_pid: process.pid,
+    }
+  );
+  
+  await shutdownObservability();
+  process.exit(1);
+});
+
+// Run the CLI
+main().catch(async (error) => {
+  console.error("❌ CLI execution failed:", error);
+  
+  // Record as error span
+  const { recordErrorSpan } = await import("./utils/observability");
+  await recordErrorSpan(error, "cli_execution_failed", {
+    error_type: "cli_execution_failed",
+  });
+  
+  await shutdownObservability();
+  process.exit(1);
+});
