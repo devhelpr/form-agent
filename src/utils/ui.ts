@@ -28,9 +28,7 @@ class UIManager {
     // Properly stop any existing spinner before starting a new one
     if (this.currentSpinner) {
       try {
-        if (typeof this.currentSpinner.stop === "function") {
-          (this.currentSpinner.stop as any)(" ", 0);
-        }
+        this.currentSpinner.stop(" ", 0);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
@@ -62,11 +60,9 @@ class UIManager {
     // Minimal completion indicator - just stop the spinner
     // Don't show verbose messages
     try {
-      if (typeof this.currentSpinner.stop === "function") {
-        // Stop with a single space to prevent "Canceled" message but show minimal output
-        // Calling stop() without args shows "Canceled", so we pass a space and code 0
-        (this.currentSpinner.stop as any)(" ", 0);
-      }
+      // Stop with a single space to prevent "Canceled" message but show minimal output
+      // Calling stop() without args shows "Canceled", so we pass a space and code 0
+      this.currentSpinner.stop(" ", 0);
     } catch (e) {
       // Ignore errors - spinner might already be stopped
     }
@@ -76,10 +72,8 @@ class UIManager {
   showError(message: string, details?: string) {
     if (this.currentSpinner) {
       try {
-        if (typeof this.currentSpinner.stop === "function") {
-          // Stop with a single space and error code (1) for errors
-          (this.currentSpinner.stop as any)(" ", 1);
-        }
+        // Stop with a single space and error code (1) for errors
+        this.currentSpinner.stop(" ", 1);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
@@ -108,9 +102,7 @@ class UIManager {
     // Properly stop any existing spinner before starting planning spinner
     if (this.currentSpinner) {
       try {
-        if (typeof this.currentSpinner.stop === "function") {
-          (this.currentSpinner.stop as any)(" ", 0);
-        }
+        this.currentSpinner.stop(" ", 0);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
@@ -132,11 +124,9 @@ class UIManager {
   stopSpinner() {
     if (this.currentSpinner) {
       try {
-        if (typeof this.currentSpinner.stop === "function") {
-          // Stop with a single space to prevent "Canceled" message but show minimal output
-          // Calling stop() without args shows "Canceled", so we pass a space and code 0
-          (this.currentSpinner.stop as any)(" ", 0);
-        }
+        // Stop with a single space to prevent "Canceled" message but show minimal output
+        // Calling stop() without args shows "Canceled", so we pass a space and code 0
+        this.currentSpinner.stop(" ", 0);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
