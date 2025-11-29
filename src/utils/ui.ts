@@ -14,6 +14,7 @@ class UIManager {
   private currentStep: number = 0;
   private maxSteps: number = 0;
   private initialized: boolean = false;
+  private lastAction: string = "";
 
   // Initialize with minimal header
   init(maxSteps: number) {
@@ -28,7 +29,9 @@ class UIManager {
     // Properly stop any existing spinner before starting a new one
     if (this.currentSpinner) {
       try {
-        this.currentSpinner.stop(" ", 0);
+        // Show the last action that was completed
+        const lastActionText = this.lastAction || "Complete";
+        this.currentSpinner.stop(lastActionText, 0);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
@@ -37,6 +40,7 @@ class UIManager {
 
     // Minimal single-line status
     const actionName = info.action ? this.formatActionName(info.action) : "Working";
+    this.lastAction = actionName;
     const message = `${info.step}/${info.maxSteps} ${actionName}`;
 
     this.currentSpinner = spinner();
@@ -49,6 +53,7 @@ class UIManager {
     const step = info.step || this.currentStep;
     const maxSteps = info.maxSteps || this.maxSteps;
     const actionName = info.action ? this.formatActionName(info.action) : "Working";
+    this.lastAction = actionName;
     const message = `${step}/${maxSteps} ${actionName}`;
 
     this.currentSpinner.message(message);
@@ -57,12 +62,10 @@ class UIManager {
   completeStep(info: Partial<StepInfo> & { success: boolean; message?: string }) {
     if (!this.currentSpinner) return;
 
-    // Minimal completion indicator - just stop the spinner
-    // Don't show verbose messages
+    // Show the last action that was completed
     try {
-      // Stop with a single space to prevent "Canceled" message but show minimal output
-      // Calling stop() without args shows "Canceled", so we pass a space and code 0
-      this.currentSpinner.stop(" ", 0);
+      const lastActionText = this.lastAction || "Complete";
+      this.currentSpinner.stop(lastActionText, 0);
     } catch (e) {
       // Ignore errors - spinner might already be stopped
     }
@@ -72,8 +75,9 @@ class UIManager {
   showError(message: string, details?: string) {
     if (this.currentSpinner) {
       try {
-        // Stop with a single space and error code (1) for errors
-        this.currentSpinner.stop(" ", 1);
+        // Show the last action that failed
+        const lastActionText = this.lastAction || "Error";
+        this.currentSpinner.stop(lastActionText, 1);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
@@ -102,13 +106,16 @@ class UIManager {
     // Properly stop any existing spinner before starting planning spinner
     if (this.currentSpinner) {
       try {
-        this.currentSpinner.stop(" ", 0);
+        // Show the last action that was completed
+        const lastActionText = this.lastAction || "Complete";
+        this.currentSpinner.stop(lastActionText, 0);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
       this.currentSpinner = null;
     }
     
+    this.lastAction = "Planning";
     this.currentSpinner = spinner();
     this.currentSpinner.start("Planning");
   }
@@ -124,9 +131,9 @@ class UIManager {
   stopSpinner() {
     if (this.currentSpinner) {
       try {
-        // Stop with a single space to prevent "Canceled" message but show minimal output
-        // Calling stop() without args shows "Canceled", so we pass a space and code 0
-        this.currentSpinner.stop(" ", 0);
+        // Show the last action that was completed
+        const lastActionText = this.lastAction || "Complete";
+        this.currentSpinner.stop(lastActionText, 0);
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
