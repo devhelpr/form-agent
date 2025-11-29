@@ -15,7 +15,7 @@ const program = new Command();
 program
   .name("form-agent")
   .description(
-    "AI coding agent that iteratively edits a repository to satisfy your goals"
+    "AI agent for generating form JSON schemas conforming to the form-schema.json specification"
   )
   .version("1.0.0");
 
@@ -55,6 +55,22 @@ program
     "openai"
   )
   .option("--model <model>", "Specific model to use (optional)")
+  .option(
+    "--output <path>",
+    "Output path for generated form JSON (default: stdout)"
+  )
+  .option(
+    "--validate-only",
+    "Only validate form JSON, don't generate (requires --prompt with JSON)"
+  )
+  .option(
+    "--languages <langs>",
+    "Comma-separated language codes for translations (e.g., es,fr,de)"
+  )
+  .option(
+    "--include-translations",
+    "Generate translations for the form"
+  )
   .parse();
 
 async function main() {
@@ -109,9 +125,9 @@ async function main() {
     console.log(`🎯 Using prompt: ${userPrompt}`);
   } else {
     // Interactive mode
-    console.log("🤖 Agent Loop - AI Coding Agent");
+    console.log("🤖 Form Agent - AI Form JSON Generator");
     console.log(
-      "This agent will help you accomplish coding tasks by iteratively editing your repository.\n"
+      "This agent will help you generate form JSON schemas conforming to the form-schema.json specification.\n"
     );
     try {
       const promptResult = await text({
@@ -230,6 +246,13 @@ async function main() {
     // Clear timeout since we completed successfully
     if (timeoutId) {
       clearTimeout(timeoutId);
+    }
+
+    // Check if this was a fatal error
+    if ((result as any).fatal) {
+      console.error("\n❌ Agent terminated due to fatal error");
+      await shutdownObservability();
+      process.exit(1);
     }
 
     console.log("\n✅ Agent completed successfully!");

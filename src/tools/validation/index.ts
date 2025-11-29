@@ -6,3 +6,4 @@ validatorRegistry.register(new TypeScriptValidator());
 
 export * from "./validator-registry";
 export * from "./typescript-validator";
+export * from "./json-schema-validator";

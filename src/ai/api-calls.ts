@@ -79,7 +79,7 @@ export function displayTokenSummary(
 }
 
 /** ---------- API Helper Functions ---------- */
-interface ApiCallOptions {
+export interface ApiCallOptions {
   maxRetries?: number;
   timeoutMs?: number;
   truncateTranscript?: boolean;

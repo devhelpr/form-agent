@@ -11,6 +11,10 @@ export const DecisionSchema = z
         "evaluate_work",
         "create_plan",
         "analyze_project",
+        "validate_form_json",
+        "generate_expression",
+        "generate_translations",
+        "generate_form_json",
         "final_answer",
       ])
       .describe("The action to take"),
@@ -71,6 +75,59 @@ export const DecisionSchema = z
           .array(z.string())
           .optional()
           .describe("Directories to scan for analyze_project action"),
+        formJson: z
+          .string()
+          .optional()
+          .describe("JSON string to validate for validate_form_json action"),
+        schemaPath: z
+          .string()
+          .optional()
+          .describe("Path to schema file for validate_form_json action"),
+        expressionRequest: z
+          .object({
+            description: z.string().describe("Description of the expression to generate"),
+            fieldIds: z.array(z.string()).describe("Available field IDs in the form"),
+            context: z
+              .object({
+                fieldType: z.string().optional(),
+                mode: z
+                  .enum([
+                    "value",
+                    "visibility",
+                    "validation",
+                    "disabled",
+                    "required",
+                    "label",
+                    "helperText",
+                  ])
+                  .optional(),
+                currentFieldId: z.string().optional(),
+              })
+              .optional(),
+          })
+          .optional()
+          .describe("Expression generation request for generate_expression action"),
+        translationRequest: z
+          .object({
+            formJson: z.any().describe("The form JSON to translate"),
+            targetLanguages: z.array(z.string()).describe("Target language codes"),
+            sourceLanguage: z.string().optional().describe("Source language code"),
+          })
+          .optional()
+          .describe("Translation generation request for generate_translations action"),
+        formGenerationRequest: z
+          .object({
+            userPrompt: z.string().describe("User prompt describing the form to generate"),
+            options: z
+              .object({
+                includeTranslations: z.boolean().optional(),
+                languages: z.array(z.string()).optional(),
+                validateSchema: z.boolean().optional(),
+              })
+              .optional(),
+          })
+          .optional()
+          .describe("Form generation request for generate_form_json action"),
       })
       .optional()
       .describe("Input parameters for the selected tool"),
@@ -114,6 +171,51 @@ export type Decision =
   | {
       action: "analyze_project";
       tool_input: { scan_directories?: string[] };
+      rationale?: string;
+    }
+  | {
+      action: "validate_form_json";
+      tool_input: { formJson: string; schemaPath?: string };
+      rationale?: string;
+    }
+  | {
+      action: "generate_expression";
+      tool_input: {
+        expressionRequest: {
+          description: string;
+          fieldIds: string[];
+          context?: {
+            fieldType?: string;
+            mode?: "value" | "visibility" | "validation" | "disabled" | "required" | "label" | "helperText";
+            currentFieldId?: string;
+          };
+        };
+      };
+      rationale?: string;
+    }
+  | {
+      action: "generate_translations";
+      tool_input: {
+        translationRequest: {
+          formJson: object;
+          targetLanguages: string[];
+          sourceLanguage?: string;
+        };
+      };
+      rationale?: string;
+    }
+  | {
+      action: "generate_form_json";
+      tool_input: {
+        formGenerationRequest: {
+          userPrompt: string;
+          options?: {
+            includeTranslations?: boolean;
+            languages?: string[];
+            validateSchema?: boolean;
+          };
+        };
+      };
       rationale?: string;
     }
   | { action: "final_answer"; rationale?: string };

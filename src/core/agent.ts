@@ -9,6 +9,10 @@ import {
   handleEvaluateWork,
   handleCreatePlan,
   handleAnalyzeProject,
+  handleValidateFormJson,
+  handleGenerateExpression,
+  handleGenerateTranslations,
+  handleGenerateFormJson,
 } from "../handlers";
 import {
   makeAICallWithSchema,
@@ -19,6 +23,10 @@ import {
 import { prompt } from "../ai/prompts";
 import { AIProvider } from "../ai/ai-client";
 import { withSpan, recordErrorSpan } from "../utils/observability";
+import {
+  isFatalSchemaError,
+  getFatalSchemaErrorMessage,
+} from "../utils/error-detection";
 
 // Validation function to ensure decision structure is correct
 function validateDecision(parsed: any): Decision | null {
@@ -35,6 +43,10 @@ function validateDecision(parsed: any): Decision | null {
     "evaluate_work",
     "create_plan",
     "analyze_project",
+    "validate_form_json",
+    "generate_expression",
+    "generate_translations",
+    "generate_form_json",
     "final_answer",
   ];
 
@@ -316,6 +328,50 @@ When ready to speak to the user, choose final_answer.
         return result;
       });
     } catch (error) {
+      // Check if this is a fatal schema error that should cause exit
+      if (isFatalSchemaError(error)) {
+        await logError(
+          logConfig,
+          "Fatal schema error detected - exiting application",
+          error
+        );
+
+        // Get token statistics
+        const tokenStats = getTokenStats();
+        displayTokenSummary(tokenStats);
+
+        // Record error span
+        await withSpan("agent.error", async (errorSpan) => {
+          if (errorSpan) {
+            errorSpan.setAttribute("agent.error.step", step);
+            errorSpan.setAttribute("agent.error.type", "fatal_schema_error");
+            errorSpan.setAttribute("agent.error.message", String(error));
+            errorSpan.setAttribute("agent.error.total_tokens", tokenStats.totalTokens);
+            errorSpan.setAttribute("agent.error.total_calls", tokenStats.totalCalls);
+            if (error instanceof Error) {
+              errorSpan.recordException?.(error);
+            }
+          }
+        });
+
+        // Exit the application
+        console.error("\n❌ " + getFatalSchemaErrorMessage(error));
+        console.error("\nThis is a fatal error that cannot be recovered from.");
+        console.error("Please check your schema configuration and try again.\n");
+
+        if (span) {
+          span.setAttribute("agent.completed", false);
+          span.setAttribute("agent.reason", "fatal_schema_error");
+        }
+
+        return {
+          steps: step,
+          message: getFatalSchemaErrorMessage(error),
+          tokenUsage: tokenStats,
+          fatal: true,
+        };
+      }
+
       await logError(logConfig, "AI API call failed after all retries", error);
 
       // Get token statistics even on error
@@ -602,6 +658,41 @@ When ready to speak to the user, choose final_answer.
 
     if (decision.action === "analyze_project") {
       await handleAnalyzeProject(
+        decision,
+        transcript,
+        logConfig,
+        opts?.aiProvider
+      );
+      continue;
+    }
+
+    if (decision.action === "validate_form_json") {
+      await handleValidateFormJson(decision, transcript, logConfig);
+      continue;
+    }
+
+    if (decision.action === "generate_expression") {
+      await handleGenerateExpression(
+        decision,
+        transcript,
+        logConfig,
+        opts?.aiProvider
+      );
+      continue;
+    }
+
+    if (decision.action === "generate_translations") {
+      await handleGenerateTranslations(
+        decision,
+        transcript,
+        logConfig,
+        opts?.aiProvider
+      );
+      continue;
+    }
+
+    if (decision.action === "generate_form_json") {
+      await handleGenerateFormJson(
         decision,
         transcript,
         logConfig,
