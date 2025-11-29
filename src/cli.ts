@@ -83,7 +83,13 @@ program
 async function main() {
   const options = program.opts();
   // Initialize optional observability (no-op if disabled or deps missing)
-  await initObservability({ serviceName: "form-agent-cli" });
+  // Wrap in try-catch to ensure failures don't break the application
+  try {
+    await initObservability({ serviceName: "form-agent-cli" });
+  } catch (error) {
+    // Silently fail - observability is optional
+    // Application continues without tracing
+  }
 
   // Check for AI provider API key
   const provider = options.provider as AIProvider;
@@ -108,16 +114,10 @@ async function main() {
       jaeger_endpoint: jaegerEndpoint,
     });
     
-    console.error(
-      `❌ Error: ${requiredEnvVar} environment variable is not set`
-    );
-    console.log(`Please set your ${provider} API key:`);
-    console.log(`export ${requiredEnvVar}="your-api-key-here"`);
-    console.log("\nSupported providers:");
-    console.log('  - OpenAI: export OPENAI_API_KEY="your-key"');
-    console.log('  - Anthropic: export ANTHROPIC_API_KEY="your-key"');
-    console.log('  - Google: export GOOGLE_API_KEY="your-key"');
-    console.log("  - Ollama: No API key required (runs locally)");
+    // Minimal error - show only essential info
+    const { log: clackLog } = await import("@clack/prompts");
+    clackLog.error(`${requiredEnvVar} not set`);
+    clackLog.info(`Set: export ${requiredEnvVar}="your-key"`);
     
     // Shutdown observability to flush the error span
     await shutdownObservability();
@@ -129,13 +129,9 @@ async function main() {
   // Get user prompt
   if (options.prompt) {
     userPrompt = options.prompt;
-    console.log(`🎯 Using prompt: ${userPrompt}`);
+    // Don't log prompt - it's verbose, details go to traces
   } else {
     // Interactive mode
-    console.log("🤖 Form Agent - AI Form JSON Generator");
-    console.log(
-      "This agent will help you generate form JSON schemas conforming to the form-schema.json specification.\n"
-    );
     try {
       const promptResult = await text({
         message: "What would you like the agent to help you with?",
@@ -148,7 +144,6 @@ async function main() {
       });
 
       if (isCancel(promptResult)) {
-        console.log("👋 until next time!");
         process.exit(0);
       }
 
@@ -184,20 +179,16 @@ async function main() {
     },
   };
 
-  // Show compact startup info
-  const { log: clackLog } = await import("@clack/prompts");
-  clackLog.info(`Starting form generation agent`);
-  clackLog.info(`Prompt: ${userPrompt.substring(0, 60)}${userPrompt.length > 60 ? "..." : ""}`);
-  clackLog.info(`Max steps: ${maxSteps} • Provider: ${provider}${options.model ? ` (${options.model})` : ""}`);
-  console.log(""); // Empty line for spacing
+  // Minimal startup - no verbose output
+  // All details go to traces and log files
 
   // Set up configurable timeout if specified
   let timeoutId: NodeJS.Timeout | null = null;
   if (timeoutSeconds > 0) {
     timeoutId = setTimeout(async () => {
-      console.log(
-        `⚠️  Process timeout after ${timeoutSeconds} seconds - forcing exit`
-      );
+      // Minimal timeout message
+      const { log: clackLog } = await import("@clack/prompts");
+      clackLog.error(`Timeout after ${timeoutSeconds}s`);
       await shutdownObservability();
       process.exit(0);
     }, timeoutSeconds * 1000);
@@ -237,22 +228,20 @@ async function main() {
     // Check if this was a fatal error
     if ((result as any).fatal) {
       const { log: clackLog } = await import("@clack/prompts");
-      clackLog.error("Agent terminated due to fatal error");
+      clackLog.error("Fatal error");
       await shutdownObservability();
       process.exit(1);
     }
-
-    const { log: clackLog } = await import("@clack/prompts");
-    console.log(""); // Empty line for spacing
-    clackLog.success("Agent completed successfully!");
 
     // Handle output file if specified
     const outputFile = options.outputFile || "form.json";
     if (outputFile) {
       await handleOutputFile(result, outputFile);
-    } else {
-      console.log("📊 Final result:", result);
     }
+    
+    // Minimal completion message
+    const { log: clackLog } = await import("@clack/prompts");
+    clackLog.success("Complete");
 
     // Shutdown observability to flush traces before exit
     await shutdownObservability();
@@ -262,7 +251,11 @@ async function main() {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
-    console.error("\n❌ Agent execution failed:", error);
+    
+    // Minimal error display - details go to traces
+    const { log: clackLog } = await import("@clack/prompts");
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    clackLog.error(`Failed: ${errorMessage.substring(0, 60)}`);
     
     // Record as error span
     const { recordErrorSpan } = await import("./utils/observability");
@@ -279,7 +272,9 @@ async function main() {
 
 // Handle uncaught errors
 process.on("uncaughtException", async (error) => {
-  console.error("❌ Uncaught Exception:", error);
+  // Minimal error display - details go to traces
+  const { log: clackLog } = await import("@clack/prompts");
+  clackLog.error("Uncaught exception");
   
   // Record as error span
   const { recordErrorSpan } = await import("./utils/observability");
@@ -293,7 +288,9 @@ process.on("uncaughtException", async (error) => {
 });
 
 process.on("unhandledRejection", async (reason, promise) => {
-  console.error("❌ Unhandled Rejection:", reason);
+  // Minimal error display - details go to traces
+  const { log: clackLog } = await import("@clack/prompts");
+  clackLog.error("Unhandled rejection");
   
   // Record as error span
   const { recordErrorSpan } = await import("./utils/observability");
@@ -327,11 +324,10 @@ async function handleOutputFile(
   }
 
   if (!formJson) {
-    console.warn(
-      `⚠️  Could not extract form JSON from result. Saving raw message to ${outputFile}`
-    );
+    // Minimal warning - details in traces
+    const { log: clackLog } = await import("@clack/prompts");
+    clackLog.warn(`Could not extract form JSON, saving raw message`);
     await fs.writeFile(outputFile, result.message, "utf-8");
-    console.log(`📄 Saved to: ${outputFile}`);
     return;
   }
 
@@ -349,17 +345,12 @@ async function handleOutputFile(
     });
 
     if (isCancel(shouldOverride)) {
-      console.log("❌ Operation cancelled");
       process.exit(0);
     }
 
     if (!shouldOverride) {
       // Generate unique filename
       finalPath = await findUniqueFilename(filePath);
-      const finalFilename = finalPath.split("/").pop() || finalPath;
-      console.log(`📝 Using unique filename: ${finalFilename}`);
-    } else {
-      console.log(`📝 Overwriting existing file: ${outputFile}`);
     }
   }
 
@@ -371,20 +362,21 @@ async function handleOutputFile(
       "utf-8"
     );
     const finalFilename = finalPath.split("/").pop() || finalPath;
-    console.log(`✅ Form JSON saved to: ${finalFilename}`);
-    console.log(`📊 Metadata:`, {
-      pages: (formJson as any)?.app?.pages?.length || 0,
-      title: (formJson as any)?.app?.title || "N/A",
-    });
+    // Minimal success message
+    const { log: clackLog } = await import("@clack/prompts");
+    clackLog.success(`Saved: ${finalFilename}`);
   } catch (error) {
-    console.error(`❌ Failed to write file: ${error}`);
+    const { log: clackLog } = await import("@clack/prompts");
+    clackLog.error(`Failed to write file`);
     throw error;
   }
 }
 
 // Run the CLI
 main().catch(async (error) => {
-  console.error("❌ CLI execution failed:", error);
+  // Minimal error display - details go to traces
+  const { log: clackLog } = await import("@clack/prompts");
+  clackLog.error("CLI execution failed");
   
   // Record as error span
   const { recordErrorSpan } = await import("./utils/observability");

@@ -94,6 +94,9 @@ export async function runCodingAgent(
     resetTokenStats();
 
   const maxSteps = opts?.maxSteps ?? 20;
+  
+  // Initialize UI with max steps for minimal display
+  ui.init(maxSteps);
   const testCmd = opts?.testCommand ?? {
     cmd: "npm",
     args: ["test", "--silent"],
@@ -117,18 +120,19 @@ export async function runCodingAgent(
   let writes = 0,
     cmds = 0;
 
-  // Suppress console logging, only log to file if enabled
+  // Suppress console logging completely, only log to file if enabled
+  // This ensures no verbose tool logs appear in console
   const silentLogConfig: LogConfig = {
     ...logConfig,
-    enabled: false, // Disable console logging
-    logSteps: false,
-    logToolCalls: false,
-    logToolResults: false,
-    logDecisions: false,
-    logTranscript: false,
-    logErrors: false, // Errors will be shown via UI
-    logPromptContext: false,
-    fileLogging: logConfig.fileLogging, // Keep file logging if enabled
+    enabled: false, // Completely disable console logging
+    logSteps: false, // Disable step logging
+    logToolCalls: false, // Disable tool call logging
+    logToolResults: false, // Disable tool result logging
+    logDecisions: false, // Disable decision logging
+    logTranscript: false, // Disable transcript logging
+    logErrors: false, // Errors will be shown via UI, not console
+    logPromptContext: false, // Disable prompt context logging
+    fileLogging: logConfig.fileLogging, // Keep file logging if enabled (details go to file)
   };
 
   log(silentLogConfig, "step", `Starting coding agent with goal: ${userGoal}`, {
@@ -156,7 +160,9 @@ When ready to speak to the user, choose final_answer.
       planningSpan.setAttribute("agent.planning.user_goal_preview", userGoal.substring(0, 200));
     }
 
-    log(logConfig, "step", "=== Planning Phase ===");
+    // Show planning phase in UI spinner instead of logging
+    ui.showPlanning();
+    log(silentLogConfig, "step", "=== Planning Phase ===");
 
     // For complex tasks, create a structured plan
     // Lowered thresholds to make planning more common
@@ -202,7 +208,7 @@ When ready to speak to the user, choose final_answer.
 
       if (isComplexTask) {
         log(silentLogConfig, "step", "Complex task detected, creating execution plan");
-        ui.showInfo("Creating execution plan...");
+        // Info suppressed - details go to logs/traces
 
         const planDecision: Decision = {
           action: "create_plan",
@@ -249,7 +255,7 @@ When ready to speak to the user, choose final_answer.
         await handleCreatePlan(
           planDecision,
           transcript,
-          logConfig,
+          silentLogConfig,
           opts?.aiProvider
         );
       } else {
@@ -281,6 +287,9 @@ When ready to speak to the user, choose final_answer.
 
     let decisionResp: Awaited<ReturnType<typeof makeAICallWithSchema>>;
 
+    // Show "Deciding" in spinner while making API call
+    ui.showDecision();
+
     try {
       const systemMessage = transcript.find((m) => m.role === "system");
       const userMessages = transcript.filter((m) => m.role !== "system");
@@ -303,7 +312,7 @@ When ready to speak to the user, choose final_answer.
           span.setAttribute("agent.writes", writes);
           span.setAttribute("agent.cmds", cmds);
         }
-        const result = await makeAICallWithSchema(transcript, DecisionSchema, logConfig, {
+        const result = await makeAICallWithSchema(transcript, DecisionSchema, silentLogConfig, {
           maxRetries: 3,
           timeoutMs: 120000, // 2 minutes
           truncateTranscript: true,
@@ -418,10 +427,12 @@ When ready to speak to the user, choose final_answer.
     const rawContent = decisionResp.choices[0].message.content || "{}";
     let decision: Decision;
 
+    // Continue showing "Deciding" while parsing response
+
     // Check if response is too large (might indicate an issue)
     if (rawContent.length > 50000) {
       log(
-        logConfig,
+        silentLogConfig,
         "decision",
         "Response is very large, might indicate parsing issues",
         {
@@ -433,7 +444,7 @@ When ready to speak to the user, choose final_answer.
 
     try {
       const parsed = JSON.parse(rawContent);
-      log(logConfig, "decision", "LLM response parsed successfully", {
+      log(silentLogConfig, "decision", "LLM response parsed successfully", {
         rawContentLength: rawContent.length,
         hasAction: !!parsed.action,
         hasProperties: !!parsed.properties,
@@ -442,7 +453,7 @@ When ready to speak to the user, choose final_answer.
       // Handle case where the decision is nested under properties
       if (parsed.properties?.action) {
         log(
-          logConfig,
+          silentLogConfig,
           "decision",
           "Decision found in properties, extracting..."
         );
@@ -457,7 +468,7 @@ When ready to speak to the user, choose final_answer.
           decision = validatedDecision;
         } else {
           log(
-            logConfig,
+            silentLogConfig,
             "decision",
             "Extracted decision failed validation, defaulting to final_answer",
             { extractedDecision }
@@ -473,7 +484,7 @@ When ready to speak to the user, choose final_answer.
           decision = validatedDecision;
         } else {
           log(
-            logConfig,
+            silentLogConfig,
             "decision",
             "Parsed decision failed validation, defaulting to final_answer",
             { parsedKeys: Object.keys(parsed), parsed }
@@ -485,7 +496,7 @@ When ready to speak to the user, choose final_answer.
         }
       }
     } catch (error) {
-      await logError(logConfig, "Failed to parse LLM response as JSON", error, {
+      await logError(silentLogConfig, "Failed to parse LLM response as JSON", error, {
         rawContent:
           rawContent.substring(0, 500) + (rawContent.length > 500 ? "..." : ""),
         contentLength: rawContent.length,
@@ -504,7 +515,8 @@ When ready to speak to the user, choose final_answer.
       } as Decision;
     }
 
-    // Show step progress in UI
+    // Update spinner to show the decided action
+    // This replaces the "Deciding" message with the actual step and action
     ui.startStep({
       step,
       maxSteps,
@@ -565,7 +577,7 @@ When ready to speak to the user, choose final_answer.
                 summary: z.string(),
               })
               .describe("Summary"),
-            logConfig,
+            silentLogConfig,
             {
               maxRetries: 2,
               timeoutMs: 60000,
@@ -729,7 +741,7 @@ When ready to speak to the user, choose final_answer.
       message: "Max steps reached without finalization.",
     };
     log(silentLogConfig, "step", "Agent reached max steps without completion", result);
-    ui.showWarning("Max steps reached without completion");
+    // Warning suppressed - details go to logs/traces
     
     if (span) {
       span.setAttribute("agent.completed", false);

@@ -189,9 +189,9 @@ Generate a complete form JSON that satisfies the user's requirements.
   } catch (error) {
     // Check if this is a fatal schema error
     if (isFatalSchemaError(error)) {
-      console.error("\n❌ " + getFatalSchemaErrorMessage(error));
-      console.error("\nThis is a fatal error that cannot be recovered from.");
-      console.error("Please check your schema configuration and try again.\n");
+      // Minimal error - details go to traces/logs
+      const { log: clackLog } = await import("@clack/prompts");
+      clackLog.error("Fatal schema error");
       process.exit(1);
     }
     // Re-throw other errors

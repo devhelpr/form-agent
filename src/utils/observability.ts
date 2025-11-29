@@ -32,6 +32,9 @@ let meter: Meter | null = null;
 let sdk: NodeSDK | null = null;
 let traceExporter: OTLPTraceExporter | null = null;
 let savedJaegerEndpoint: string = "";
+let cachedSpanKind: typeof SpanKind | undefined = undefined;
+// Track if span creation has failed to disable observability gracefully
+let spanCreationFailed = false;
 
 // Export function to get the saved Jaeger endpoint
 export function getJaegerEndpoint(): string {
@@ -74,6 +77,10 @@ export interface ObservabilityConfig {
 
 export async function initObservability(config?: ObservabilityConfig) {
   if (initialized) return;
+  // If span creation has already failed, don't try to initialize
+  if (spanCreationFailed) {
+    return;
+  }
   // Support both JAEGER_OBS_ENABLED and legacy GRAFANA_OBS_ENABLED for backward compatibility
   const obsEnabled = process.env.JAEGER_OBS_ENABLED === "true" || process.env.GRAFANA_OBS_ENABLED === "true";
   if (!obsEnabled) {
@@ -127,6 +134,7 @@ export async function initObservability(config?: ObservabilityConfig) {
       SemanticResourceAttributes: { SERVICE_NAME: string; SERVICE_VERSION: string; [key: string]: string };
     };
     const { trace, SpanKind: SpanKindEnum } = apiModule as { trace: { getTracer: (name: string) => Tracer }, SpanKind: typeof SpanKind };
+    cachedSpanKind = SpanKindEnum;
 
     // Extract instrumentations if available
     const HttpInstrumentationClass = (httpInstrumentationModule as { HttpInstrumentation: new () => HttpInstrumentation } | null)?.HttpInstrumentation;
@@ -425,25 +433,24 @@ export async function initObservability(config?: ObservabilityConfig) {
 
     initialized = true;
   } catch (err) {
-    // If observability is explicitly enabled but fails, log and exit
+    // If observability is explicitly enabled but fails, disable it gracefully
+    // Don't exit - let the application continue without observability
     const errorMessage = err instanceof Error ? err.message : String(err);
-    const errorStack = err instanceof Error ? err.stack : undefined;
-
-    console.error("❌ Jaeger observability initialization failed:");
-    console.error(`   Error: ${errorMessage}`);
-    if (errorStack) {
-      console.error(`   Stack: ${errorStack}`);
+    
+    // Mark span creation as failed to prevent any attempts
+    spanCreationFailed = true;
+    
+    // Reset tracer to null to ensure no attempts to use it
+    tracer = null;
+    initialized = false;
+    
+    // Only log if observability was explicitly enabled
+    const obsEnabled = process.env.JAEGER_OBS_ENABLED === "true" || process.env.GRAFANA_OBS_ENABLED === "true";
+    if (obsEnabled) {
+      // Minimal error message - details go to traces (which we can't create)
+      console.warn("⚠️  Observability initialization failed, continuing without tracing");
     }
-    console.error("\n   This may be due to:");
-    console.error("   - Missing OpenTelemetry dependencies (run: npm install)");
-    console.error(
-      "   - Invalid configuration (check JAEGER_* environment variables)"
-    );
-    console.error("   - Network issues connecting to Jaeger OTLP endpoint");
-    console.error("   - Jaeger collector not running (expected at http://localhost:4318)");
-    console.error("\n   Application will now exit.");
-
-    process.exit(1);
+    // Don't exit - application continues without observability
   }
 }
 
@@ -514,50 +521,70 @@ export async function withSpan<T>(
   name: string,
   fn: (span?: Span) => Promise<T> | T
 ): Promise<T> {
-  if (!tracer) {
+  // If span creation has failed before, skip all future spans
+  if (spanCreationFailed) {
     return await fn();
   }
 
-  // Verify tracer is still working before creating span
-  if (!initialized) {
-    console.warn(
-      `⚠️  Attempted to create span "${name}" but observability is not initialized`
-    );
+  // Early return if observability is not enabled or not initialized
+  if (!initialized || !tracer) {
+    return await fn();
+  }
+
+  // Verify tracer has the required method
+  if (typeof tracer.startActiveSpan !== "function") {
+    spanCreationFailed = true;
     return await fn();
   }
 
   try {
-    return await tracer.startActiveSpan(name, async (span: Span) => {
-      try {
-        const res = await fn(span);
-        span.setAttribute("success", true);
-        span.end();
-        return res;
-      } catch (e: unknown) {
-        if (e instanceof Error) {
-          span.recordException?.(e);
+    // Use the same pattern as in initialization - ensure options object is properly structured
+    const spanOptions = cachedSpanKind && typeof cachedSpanKind.INTERNAL !== "undefined"
+      ? { kind: cachedSpanKind.INTERNAL }
+      : { kind: 1 }; // INTERNAL = 1
+
+    const result = await tracer.startActiveSpan(
+      name,
+      spanOptions,
+      async (span: Span) => {
+        try {
+          const res = await fn(span);
+          if (span && typeof span.setAttribute === "function") {
+            span.setAttribute("success", true);
+          }
+          if (span && typeof span.end === "function") {
+            span.end();
+          }
+          return res;
+        } catch (e: unknown) {
+          if (span && typeof span.setAttribute === "function") {
+            if (e instanceof Error) {
+              if (typeof span.recordException === "function") {
+                span.recordException(e);
+              }
+            }
+            span.setAttribute("success", false);
+            span.setAttribute(
+              "error.message",
+              e instanceof Error ? e.message : String(e)
+            );
+            span.setAttribute("error.type", e instanceof Error ? e.name : typeof e);
+            if (e instanceof Error && e.stack) {
+              span.setAttribute("error.stack", e.stack);
+            }
+          }
+          if (span && typeof span.end === "function") {
+            span.end();
+          }
+          throw e;
         }
-        span.setAttribute("success", false);
-        span.setAttribute(
-          "error.message",
-          e instanceof Error ? e.message : String(e)
-        );
-        span.setAttribute("error.type", e instanceof Error ? e.name : typeof e);
-        if (e instanceof Error && e.stack) {
-          span.setAttribute("error.stack", e.stack);
-        }
-        span.end();
-        throw e;
       }
-    });
-  } catch (spanError: unknown) {
-    // If span creation fails, log but don't break the application
-    console.error(
-      `⚠️  Failed to create span "${name}": ${
-        spanError instanceof Error ? spanError.message : String(spanError)
-      }`
     );
-    // Still execute the function even if span creation failed
+    return result;
+  } catch (spanError: unknown) {
+    // If span creation fails, mark as failed and disable future spans
+    spanCreationFailed = true;
+    // Still execute the function without tracing
     return await fn();
   }
 }
@@ -571,12 +598,27 @@ export async function recordErrorSpan(
   context: string,
   additionalAttributes?: Record<string, AttributeValue | undefined | unknown>
 ): Promise<void> {
-  if (!tracer || !initialized) {
+  // If span creation has failed before, skip all future spans
+  if (spanCreationFailed || !tracer || !initialized) {
+    return;
+  }
+
+  // Check if startActiveSpan exists and is a function
+  if (typeof tracer.startActiveSpan !== "function") {
+    spanCreationFailed = true;
     return;
   }
 
   try {
-    await tracer.startActiveSpan(`error.${context}`, async (span: Span) => {
+    const spanOptions = cachedSpanKind 
+      ? { kind: cachedSpanKind.INTERNAL }
+      : { kind: 1 }; // INTERNAL = 1
+
+    try {
+      await tracer.startActiveSpan(
+        `error.${context}`,
+        spanOptions,
+        async (span: Span) => {
       span.setAttribute("error.type", "error_span");
       span.setAttribute("error.context", context);
       
@@ -629,9 +671,15 @@ export async function recordErrorSpan(
       span.setAttribute("success", false);
       span.end();
     });
+    } catch (spanError) {
+      // If span creation fails, mark as failed and disable future spans
+      spanCreationFailed = true;
+      // Silently fail - don't break the application if span creation fails
+    }
   } catch (spanError) {
+    // If span creation fails, mark as failed and disable future spans
+    spanCreationFailed = true;
     // Silently fail - don't break the application if span creation fails
-    console.warn(`Failed to create error span for ${context}:`, spanError);
   }
 }
 
