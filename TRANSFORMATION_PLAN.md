@@ -14,7 +14,7 @@ Transform the current generic coding agent into a specialized agent that generat
 - **CLI** (`src/cli.ts`): Command-line interface
 
 ### Current Actions
-- `read_files`, `search_repo`, `write_patch`, `run_cmd`, `evaluate_work`, `create_plan`, `analyze_project`, `final_answer`
+- `read_files`, `search_repo`, `write_patch`, `run_cmd`, `evaluate_work`, `create_plan`, `final_answer`
 
 ## Transformation Strategy
 
@@ -179,7 +179,6 @@ export const DecisionSchema = z.object({
     "run_cmd",
     "evaluate_work",
     "create_plan",
-    "analyze_project",
     // New form-specific actions
     "validate_form_json",
     "generate_expression",

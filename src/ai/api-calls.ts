@@ -860,8 +860,6 @@ function repairDecisionObject(data: any): any {
       repaired.action = "generate_translations";
     } else if (repaired.tool_input?.formJson || repaired.formJson) {
       repaired.action = "validate_form_json";
-    } else if (repaired.tool_input?.scan_directories || repaired.scan_directories) {
-      repaired.action = "analyze_project";
     } else if (repaired.tool_input?.plan_steps || repaired.plan_steps) {
       repaired.action = "create_plan";
     } else if (repaired.tool_input?.command || repaired.command) {
@@ -885,7 +883,6 @@ function repairDecisionObject(data: any): any {
       "run_cmd",
       "evaluate_work",
       "create_plan",
-      "analyze_project",
       "validate_form_json",
       "generate_expression",
       "generate_translations",

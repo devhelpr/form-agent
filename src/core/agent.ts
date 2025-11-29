@@ -8,7 +8,6 @@ import {
   handleRunCmd,
   handleEvaluateWork,
   handleCreatePlan,
-  handleAnalyzeProject,
   handleValidateFormJson,
   handleGenerateExpression,
   handleGenerateTranslations,
@@ -44,7 +43,6 @@ function validateDecision(parsed: any): Decision | null {
     "run_cmd",
     "evaluate_work",
     "create_plan",
-    "analyze_project",
     "validate_form_json",
     "generate_expression",
     "generate_translations",
@@ -159,25 +157,6 @@ When ready to speak to the user, choose final_answer.
     }
 
     log(logConfig, "step", "=== Planning Phase ===");
-
-    // Always analyze the project first
-    const analyzeDecision: Decision = {
-      action: "analyze_project",
-      tool_input: { scan_directories: ["."] },
-      rationale: "Analyzing project structure before starting work",
-    };
-
-    await withSpan("agent.planning.project_analysis", async (analysisSpan) => {
-      if (analysisSpan) {
-        analysisSpan.setAttribute("agent.planning.analysis.scan_directories", JSON.stringify(analyzeDecision.tool_input.scan_directories));
-      }
-      await handleAnalyzeProject(
-        analyzeDecision,
-        transcript,
-        logConfig,
-        opts?.aiProvider
-      );
-    });
 
     // For complex tasks, create a structured plan
     // Lowered thresholds to make planning more common
@@ -701,14 +680,6 @@ When ready to speak to the user, choose final_answer.
       } else if (decision.action === "create_plan") {
         await handleCreatePlan(decision, transcript, silentLogConfig, opts?.aiProvider);
         stepMessage = "Plan created";
-      } else if (decision.action === "analyze_project") {
-        await handleAnalyzeProject(
-          decision,
-          transcript,
-          silentLogConfig,
-          opts?.aiProvider
-        );
-        stepMessage = "Project analyzed";
       } else if (decision.action === "validate_form_json") {
         await handleValidateFormJson(decision, transcript, silentLogConfig);
         stepMessage = "Validation completed";

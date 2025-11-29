@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { create_plan, analyze_project } from "../tools";
+import { create_plan } from "../tools";
 import { TypeScriptValidator } from "../tools/validation/typescript-validator";
 import { validatorRegistry } from "../tools/validation/validator-registry";
 
@@ -44,62 +44,6 @@ describe("Planning System", () => {
       expect(plan.steps).toHaveLength(0);
       expect(plan.projectContext).toBe("Test project");
       expect(plan.userGoal).toBe("Simple task");
-    });
-  });
-
-  describe("analyze_project", () => {
-    it("should analyze a basic project structure", async () => {
-      // Mock package.json content
-      const mockPackageJson = JSON.stringify({
-        name: "test-project",
-        type: "module",
-        dependencies: {
-          react: "^18.0.0",
-        },
-        devDependencies: {
-          typescript: "^5.0.0",
-          vitest: "^1.0.0",
-        },
-      });
-
-      // Mock fs.readFile to return package.json content
-      const fs = await import("node:fs");
-      const originalReadFile = fs.promises.readFile;
-      vi.spyOn(fs.promises, "readFile").mockImplementation(async (path) => {
-        if (path.toString().includes("package.json")) {
-          return mockPackageJson;
-        }
-        return originalReadFile(path);
-      });
-
-      const analysis = await analyze_project(["."]);
-
-      expect(analysis.hasTypeScript).toBe(true);
-      expect(analysis.hasReact).toBe(true);
-      expect(analysis.testFramework).toBe("vitest");
-      expect(analysis.buildTools).toContain("typescript");
-      expect(analysis.dependencies.react).toBe("^18.0.0");
-      expect(analysis.devDependencies.typescript).toBe("^5.0.0");
-    });
-
-    it("should handle missing package.json", async () => {
-      // Mock fs.readFile to throw error for package.json
-      const fs = await import("node:fs");
-      const originalReadFile = fs.promises.readFile;
-      vi.spyOn(fs.promises, "readFile").mockImplementation(async (path) => {
-        if (path.toString().includes("package.json")) {
-          throw new Error("File not found");
-        }
-        return originalReadFile(path);
-      });
-
-      const analysis = await analyze_project(["."]);
-
-      // Without package.json, dependencies should be empty
-      expect(analysis.dependencies).toEqual({});
-      expect(analysis.devDependencies).toEqual({});
-      expect(analysis.hasReact).toBe(false);
-      // Note: hasTypeScript might still be true due to actual project files
     });
   });
 });

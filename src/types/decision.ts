@@ -10,7 +10,6 @@ export const DecisionSchema = z
         "run_cmd",
         "evaluate_work",
         "create_plan",
-        "analyze_project",
         "validate_form_json",
         "generate_expression",
         "generate_translations",
@@ -71,10 +70,6 @@ export const DecisionSchema = z
           .string()
           .optional()
           .describe("Project context information for create_plan action"),
-        scan_directories: z
-          .array(z.string())
-          .optional()
-          .describe("Directories to scan for analyze_project action"),
         formJson: z
           .string()
           .optional()
@@ -166,11 +161,6 @@ export type Decision =
         }>;
         project_context?: string;
       };
-      rationale?: string;
-    }
-  | {
-      action: "analyze_project";
-      tool_input: { scan_directories?: string[] };
       rationale?: string;
     }
   | {

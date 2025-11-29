@@ -36,20 +36,18 @@ You can switch between providers using the `--provider` CLI option or by setting
 3. **write_patch**: Apply patches using full-file format (complete file content replacement)
 4. **run_cmd**: Execute shell commands
 5. **evaluate_work**: Analyze files and provide structured feedback for improvements
-6. **analyze_project**: Analyze project structure and context (automatically run at start)
-7. **create_plan**: Create a structured execution plan for complex tasks
-8. **final_answer**: Complete the task and generate a summary
+6. **create_plan**: Create a structured execution plan for complex tasks
+7. **final_answer**: Complete the task and generate a summary
 
 ## High-Level Agent Loop
 
 ```mermaid
 flowchart TD
     A[User Goal] --> B[Planning Phase]
-    B --> B1[Analyze Project]
-    B1 --> B2{Complex Task?}
-    B2 -->|Yes| B3[Create Plan]
-    B2 -->|No| C
-    B3 --> C[Agent Loop]
+    B --> B1{Complex Task?}
+    B1 -->|Yes| B2[Create Plan]
+    B1 -->|No| C
+    B2 --> C[Agent Loop]
     C --> D[LLM Decision]
     D --> E[Execute Tool]
     E --> F[Update Context]
@@ -63,8 +61,7 @@ flowchart TD
         K[write_patch]
         L[run_cmd]
         M[evaluate_work]
-        N[analyze_project]
-        O[create_plan]
+        N[create_plan]
     end
     
     E -.-> I
@@ -73,13 +70,11 @@ flowchart TD
     E -.-> L
     E -.-> M
     E -.-> N
-    E -.-> O
     
     style A fill:#e1f5fe
     style B fill:#fff3e0
     style B1 fill:#fff3e0
     style B2 fill:#fff3e0
-    style B3 fill:#fff3e0
     style C fill:#f3e5f5
     style D fill:#f3e5f5
     style E fill:#e8f5e8
@@ -92,7 +87,6 @@ flowchart TD
     style L fill:#f0f8ff
     style M fill:#f0f8ff
     style N fill:#f0f8ff
-    style O fill:#f0f8ff
 ```
 
 ## Detailed Architecture Diagram
@@ -103,11 +97,10 @@ flowchart TD
     B --> C[Setup Safety Caps & Transcript]
     C --> D[Planning Phase]
     
-    D --> D1[Always: Analyze Project]
-    D1 --> D2{Complex Task?}
-    D2 -->|Yes| D3[Create Execution Plan]
-    D2 -->|No| E
-    D3 --> E[Step Counter: 1 to maxSteps]
+    D --> D1{Complex Task?}
+    D1 -->|Yes| D2[Create Execution Plan]
+    D1 -->|No| E
+    D2 --> E[Step Counter: 1 to maxSteps]
     
     E --> F[Make AI API Call with Retries]
     
@@ -124,7 +117,6 @@ flowchart TD
     L -->|write_patch| O[Write Patch Handler]
     L -->|run_cmd| P[Run Command Handler]
     L -->|evaluate_work| Q[Evaluate Work Handler]
-    L -->|analyze_project| R[Analyze Project Handler]
     L -->|create_plan| S[Create Plan Handler]
     L -->|final_answer| T[Generate Summary with AI]
     L -->|unknown| U[Log Error & Add to Transcript]

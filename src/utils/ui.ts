@@ -103,7 +103,6 @@ class UIManager {
       run_cmd: "⚡ Running command",
       evaluate_work: "📊 Evaluating",
       create_plan: "📋 Planning",
-      analyze_project: "🔎 Analyzing",
       validate_form_json: "✓ Validating",
       generate_expression: "🧮 Generating expression",
       generate_translations: "🌐 Generating translations",
