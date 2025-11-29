@@ -61,6 +61,74 @@ CRITICAL INSTRUCTIONS:
 7. For calculated fields, use expressions in props.expression
 8. For multi-language support, structure translations properly (but don't add language selectors to forms)
 
+CRITICAL COMPONENT TYPE RULES:
+- Use "input" for text input fields (NOT "textField", "textInput", or "inputField")
+- Use "button" for buttons (NOT "submit", "submitButton", or "buttonField")
+- Use "text" for displaying static text with template variables
+- Use "textarea" for multi-line text input
+- Use "select" for dropdowns
+- Use "radio" for radio buttons
+- Use "checkbox" for checkboxes
+- Use "date" for date inputs
+- Use "slider-range" for sliders
+
+CRITICAL COMPONENT STRUCTURE RULES:
+- Components MUST have: "id", "type", and optionally "label"
+- The "id" field IS the field ID - do NOT use "fieldId" property
+- Text components display content in "props.helperText" (NOT "content" property)
+- Input components use "props.placeholder" for placeholder text
+- Input components use "props.helperText" for help text
+- Do NOT use properties like "content", "fieldId", "requiredMessage", "minLengthMessage", etc.
+
+CRITICAL VALIDATION STRUCTURE RULES:
+- Validation rules go in "validation" object: { "required": true, "minLength": 2, etc. }
+- Error messages go in "validation.errorMessages" object: { "errorMessages": { "required": "...", "minLength": "..." } }
+- Do NOT use "requiredMessage", "minLengthMessage", "maxLengthMessage", "patternMessage" as direct properties
+- Use "validation.errorMessages.required" NOT "validation.requiredMessage"
+- Use "validation.errorMessages.minLength" NOT "validation.minLengthMessage"
+- Use "validation.errorMessages.maxLength" NOT "validation.maxLengthMessage"
+- Use "validation.errorMessages.pattern" NOT "validation.patternMessage"
+
+EXAMPLE CORRECT INPUT COMPONENT:
+{
+  "id": "fullName",
+  "type": "input",
+  "label": "Full Name",
+  "props": {
+    "placeholder": "e.g., Jane Doe",
+    "helperText": "Enter your first and last name."
+  },
+  "validation": {
+    "required": true,
+    "minLength": 2,
+    "maxLength": 100,
+    "pattern": "^[\\\\p{L} .'’-]+$",
+    "errorMessages": {
+      "required": "Full name is required.",
+      "minLength": "Name must be at least {minLength} characters.",
+      "maxLength": "Name cannot exceed {maxLength} characters.",
+      "pattern": "Name contains invalid characters."
+    }
+  }
+}
+
+EXAMPLE CORRECT TEXT COMPONENT:
+{
+  "id": "text-welcome",
+  "type": "text",
+  "label": "Welcome",
+  "props": {
+    "helperText": "Please enter your full name below. This form collects only your name."
+  }
+}
+
+EXAMPLE CORRECT BUTTON COMPONENT:
+{
+  "id": "submit-button",
+  "type": "button",
+  "label": "Submit"
+}
+
 Your response must be valid JSON that can be parsed and validated against the schema.
 `;
 
