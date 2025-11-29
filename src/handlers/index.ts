@@ -4,3 +4,4 @@ export * from "./command-handlers";
 export * from "./evaluation-handlers";
 export * from "./planning-handlers";
 export * from "./form-handlers";
+export { getLastGeneratedFormJson } from "./form-handlers";

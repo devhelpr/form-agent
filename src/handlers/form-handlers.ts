@@ -172,6 +172,13 @@ export async function handleGenerateTranslations(
   }
 }
 
+// Store generated form JSON for CLI access
+let lastGeneratedFormJson: object | null = null;
+
+export function getLastGeneratedFormJson(): object | null {
+  return lastGeneratedFormJson;
+}
+
 export async function handleGenerateFormJson(
   decision: Decision,
   transcript: MessageArray,
@@ -199,6 +206,9 @@ export async function handleGenerateFormJson(
       logConfig,
       { provider: aiProvider }
     );
+
+    // Store the generated form JSON for CLI access
+    lastGeneratedFormJson = result.formJson;
 
     // Build response message
     let responseContent = `✅ Generated form JSON:\n\n`;

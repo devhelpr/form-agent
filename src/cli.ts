@@ -1,8 +1,15 @@
 #!/usr/bin/env node
 
 import { Command } from "commander";
-import { text, isCancel } from "@clack/prompts";
+import { text, isCancel, confirm } from "@clack/prompts";
+import { promises as fs } from "node:fs";
+import { join } from "node:path";
 import { runCodingAgent } from "./core/agent.js";
+import {
+  fileExists,
+  findUniqueFilename,
+  extractFormJsonFromContent,
+} from "./utils/file-utils.js";
 import {
   initObservability,
   withSpan,
@@ -56,8 +63,8 @@ program
   )
   .option("--model <model>", "Specific model to use (optional)")
   .option(
-    "--output <path>",
-    "Output path for generated form JSON (default: stdout)"
+    "--output-file <filename>",
+    "Output filename for generated form JSON (default: form.json)"
   )
   .option(
     "--validate-only",
@@ -256,7 +263,14 @@ async function main() {
     }
 
     console.log("\n✅ Agent completed successfully!");
-    console.log("📊 Final result:", result);
+
+    // Handle output file if specified
+    const outputFile = options.outputFile || "form.json";
+    if (outputFile) {
+      await handleOutputFile(result, outputFile);
+    } else {
+      console.log("📊 Final result:", result);
+    }
 
     // Shutdown observability to flush traces before exit
     await shutdownObservability();
@@ -314,6 +328,77 @@ process.on("unhandledRejection", async (reason, promise) => {
   await shutdownObservability();
   process.exit(1);
 });
+
+/**
+ * Handle output file - extract form JSON and save to file
+ */
+async function handleOutputFile(
+  result: { steps: number; message: string; formJson?: object },
+  outputFile: string
+): Promise<void> {
+  // Use form JSON from result if available, otherwise try to extract from message
+  let formJson: object | null = result.formJson || null;
+
+  if (!formJson) {
+    // Try to extract from message as fallback
+    formJson = extractFormJsonFromContent(result.message);
+  }
+
+  if (!formJson) {
+    console.warn(
+      `⚠️  Could not extract form JSON from result. Saving raw message to ${outputFile}`
+    );
+    await fs.writeFile(outputFile, result.message, "utf-8");
+    console.log(`📄 Saved to: ${outputFile}`);
+    return;
+  }
+
+  // Check if file exists
+  const filePath = join(process.cwd(), outputFile);
+  const exists = await fileExists(filePath);
+
+  let finalPath = filePath;
+
+  if (exists) {
+    // Prompt user to override or generate unique name
+    const shouldOverride = await confirm({
+      message: `File ${outputFile} already exists. Overwrite it?`,
+      initialValue: false,
+    });
+
+    if (isCancel(shouldOverride)) {
+      console.log("❌ Operation cancelled");
+      process.exit(0);
+    }
+
+    if (!shouldOverride) {
+      // Generate unique filename
+      finalPath = await findUniqueFilename(filePath);
+      const finalFilename = finalPath.split("/").pop() || finalPath;
+      console.log(`📝 Using unique filename: ${finalFilename}`);
+    } else {
+      console.log(`📝 Overwriting existing file: ${outputFile}`);
+    }
+  }
+
+  // Write the form JSON to file
+  try {
+    await fs.writeFile(
+      finalPath,
+      JSON.stringify(formJson, null, 2),
+      "utf-8"
+    );
+    const finalFilename = finalPath.split("/").pop() || finalPath;
+    console.log(`✅ Form JSON saved to: ${finalFilename}`);
+    console.log(`📊 Metadata:`, {
+      pages: (formJson as any)?.app?.pages?.length || 0,
+      title: (formJson as any)?.app?.title || "N/A",
+    });
+  } catch (error) {
+    console.error(`❌ Failed to write file: ${error}`);
+    throw error;
+  }
+}
 
 // Run the CLI
 main().catch(async (error) => {

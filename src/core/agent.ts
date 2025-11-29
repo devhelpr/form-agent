@@ -13,6 +13,7 @@ import {
   handleGenerateExpression,
   handleGenerateTranslations,
   handleGenerateFormJson,
+  getLastGeneratedFormJson,
 } from "../handlers";
 import {
   makeAICallWithSchema,
@@ -582,11 +583,22 @@ When ready to speak to the user, choose final_answer.
           message: `Task completed in ${step} steps. Summary generation failed, but agent finished execution.`,
         };
       }
-      const result = {
+      // Get the last generated form JSON if available
+      const formJson = getLastGeneratedFormJson();
+
+      const result: {
+        steps: number;
+        message: string;
+        formJson?: object;
+      } = {
         steps: step,
         message:
           final.choices[0].message.content || "Task completed successfully",
       };
+
+      if (formJson) {
+        result.formJson = formJson;
+      }
 
       // Get final token statistics
       const tokenStats = getTokenStats();
