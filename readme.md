@@ -339,10 +339,3 @@ docker run --rm --name jaeger \
   cr.jaegertracing.io/jaegertracing/jaeger:2.11.0
 ```
 
-## What did I learn?
-
-- examples in a prompt are helpful, but can also lead to confusion and hallucinations if not used carefully. Especially with smaller models. It happened that code was generated based on examples, but was not actually what the user wanted. Same with filenames in the examples. Bigger models understand these kind of examples better.
-
-- Ollama is a great way to run local models and helpful for testing and development and saving costs.
-
-- Using Observability is helpful for tracing the agent's execution and debugging. Jaeger runs locally and is easy to set up using Docker.
