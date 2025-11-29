@@ -186,6 +186,10 @@ async function main() {
   let timeoutId: NodeJS.Timeout | null = null;
   if (timeoutSeconds > 0) {
     timeoutId = setTimeout(async () => {
+      // Stop any active spinner before showing timeout message
+      const { ui } = await import("./utils/ui");
+      ui.stopSpinner();
+      
       // Minimal timeout message
       const { log: clackLog } = await import("@clack/prompts");
       clackLog.error(`Timeout after ${timeoutSeconds}s`);
@@ -227,6 +231,10 @@ async function main() {
 
     // Check if this was a fatal error
     if ((result as any).fatal) {
+      // Stop any active spinner before showing error
+      const { ui } = await import("./utils/ui");
+      ui.stopSpinner();
+      
       const { log: clackLog } = await import("@clack/prompts");
       clackLog.error("Fatal error");
       await shutdownObservability();
@@ -239,18 +247,32 @@ async function main() {
       await handleOutputFile(result, outputFile);
     }
     
+    // Stop any active spinner before showing completion message
+    const { ui } = await import("./utils/ui");
+    ui.stopSpinner();
+
     // Minimal completion message
     const { log: clackLog } = await import("@clack/prompts");
     clackLog.success("Complete");
 
     // Shutdown observability to flush traces before exit
     await shutdownObservability();
+    
+    // Ensure spinner is stopped and give it time to clean up before exit
+    ui.stopSpinner();
+    // Use setImmediate to ensure spinner cleanup completes before process.exit
+    await new Promise(resolve => setImmediate(resolve));
+    
     process.exit(0);
   } catch (error) {
     // Clear timeout on error
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
+    
+    // Stop any active spinner before showing error
+    const { ui } = await import("./utils/ui");
+    ui.stopSpinner();
     
     // Minimal error display - details go to traces
     const { log: clackLog } = await import("@clack/prompts");
@@ -272,6 +294,10 @@ async function main() {
 
 // Handle uncaught errors
 process.on("uncaughtException", async (error) => {
+  // Stop any active spinner before showing error
+  const { ui } = await import("./utils/ui");
+  ui.stopSpinner();
+  
   // Minimal error display - details go to traces
   const { log: clackLog } = await import("@clack/prompts");
   clackLog.error("Uncaught exception");
@@ -288,6 +314,10 @@ process.on("uncaughtException", async (error) => {
 });
 
 process.on("unhandledRejection", async (reason, promise) => {
+  // Stop any active spinner before showing error
+  const { ui } = await import("./utils/ui");
+  ui.stopSpinner();
+  
   // Minimal error display - details go to traces
   const { log: clackLog } = await import("@clack/prompts");
   clackLog.error("Unhandled rejection");
@@ -341,6 +371,9 @@ async function handleOutputFile(
     // Stop any active spinner before prompting user
     const { ui } = await import("./utils/ui");
     ui.stopSpinner();
+    
+    // Small delay to ensure spinner cleanup completes and output is clean
+    await new Promise(resolve => setImmediate(resolve));
 
     // Prompt user to override or generate unique name
     const shouldOverride = await confirm({
@@ -379,6 +412,10 @@ async function handleOutputFile(
 
 // Run the CLI
 main().catch(async (error) => {
+  // Stop any active spinner before showing error
+  const { ui } = await import("./utils/ui");
+  ui.stopSpinner();
+  
   // Minimal error display - details go to traces
   const { log: clackLog } = await import("@clack/prompts");
   clackLog.error("CLI execution failed");

@@ -25,10 +25,17 @@ class UIManager {
     this.currentStep = info.step;
     this.maxSteps = info.maxSteps;
 
-    // Don't call stop() when immediately starting a new spinner
-    // Just null out the reference - the new spinner will replace it
-    // This avoids the "t is not a function" error in clack/prompts
-    this.currentSpinner = null;
+    // Properly stop any existing spinner before starting a new one
+    if (this.currentSpinner) {
+      try {
+        if (typeof this.currentSpinner.stop === "function") {
+          (this.currentSpinner.stop as any)(" ", 0);
+        }
+      } catch (e) {
+        // Ignore errors - spinner might already be stopped
+      }
+      this.currentSpinner = null;
+    }
 
     // Minimal single-line status
     const actionName = info.action ? this.formatActionName(info.action) : "Working";
@@ -56,8 +63,9 @@ class UIManager {
     // Don't show verbose messages
     try {
       if (typeof this.currentSpinner.stop === "function") {
-        // Call stop without arguments
-        (this.currentSpinner.stop as any)();
+        // Stop with a single space to prevent "Canceled" message but show minimal output
+        // Calling stop() without args shows "Canceled", so we pass a space and code 0
+        (this.currentSpinner.stop as any)(" ", 0);
       }
     } catch (e) {
       // Ignore errors - spinner might already be stopped
@@ -69,8 +77,8 @@ class UIManager {
     if (this.currentSpinner) {
       try {
         if (typeof this.currentSpinner.stop === "function") {
-          // Call stop without arguments
-          (this.currentSpinner.stop as any)();
+          // Stop with a single space and error code (1) for errors
+          (this.currentSpinner.stop as any)(" ", 1);
         }
       } catch (e) {
         // Ignore errors - spinner might already be stopped
@@ -97,10 +105,17 @@ class UIManager {
 
   // Show planning phase in spinner
   showPlanning() {
-    // Don't call stop() when immediately starting a new spinner
-    // Just null out the reference - the new spinner will replace it
-    // This avoids the "t is not a function" error in clack/prompts
-    this.currentSpinner = null;
+    // Properly stop any existing spinner before starting planning spinner
+    if (this.currentSpinner) {
+      try {
+        if (typeof this.currentSpinner.stop === "function") {
+          (this.currentSpinner.stop as any)(" ", 0);
+        }
+      } catch (e) {
+        // Ignore errors - spinner might already be stopped
+      }
+      this.currentSpinner = null;
+    }
     
     this.currentSpinner = spinner();
     this.currentSpinner.start("Planning");
@@ -118,11 +133,14 @@ class UIManager {
     if (this.currentSpinner) {
       try {
         if (typeof this.currentSpinner.stop === "function") {
-          (this.currentSpinner.stop as any)();
+          // Stop with a single space to prevent "Canceled" message but show minimal output
+          // Calling stop() without args shows "Canceled", so we pass a space and code 0
+          (this.currentSpinner.stop as any)(" ", 0);
         }
       } catch (e) {
         // Ignore errors - spinner might already be stopped
       }
+      // Clear reference immediately after stopping
       this.currentSpinner = null;
     }
   }
