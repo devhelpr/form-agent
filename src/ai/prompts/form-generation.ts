@@ -129,6 +129,51 @@ EXAMPLE CORRECT BUTTON COMPONENT:
   "label": "Submit"
 }
 
+CRITICAL EXPRESSION STRUCTURE RULES:
+- Expressions MUST be inside "props.expression" object (NOT a top-level field)
+- Expressions MUST have "expression" (string) and "mode" (string) fields
+- Expression syntax uses fieldId.value (e.g., "slider1.value", NOT "{{slider1}}")
+- Template variables {{fieldId}} are ONLY for text components, NOT for expressions
+- Do NOT use "type": "expression" - that property does not exist
+- Always include "dependencies" array with all referenced field IDs
+
+EXAMPLE CORRECT CALCULATED FIELD WITH EXPRESSION:
+{
+  "id": "total",
+  "type": "input",
+  "label": "Total",
+  "props": {
+    "readOnly": true,
+    "helperText": "Automatically calculated",
+    "expression": {
+      "expression": "slider1.value + slider2.value",
+      "mode": "value",
+      "dependencies": ["slider1", "slider2"]
+    }
+  }
+}
+
+WRONG - DO NOT USE THIS FORMAT:
+{
+  "sumExpression": {
+    "type": "expression",
+    "expression": "{{slider1}} + {{slider2}}"
+  }
+}
+
+CORRECT - USE THIS FORMAT:
+{
+  "id": "total",
+  "type": "input",
+  "props": {
+    "expression": {
+      "expression": "slider1.value + slider2.value",
+      "mode": "value",
+      "dependencies": ["slider1", "slider2"]
+    }
+  }
+}
+
 Your response must be valid JSON that can be parsed and validated against the schema.
 `;
 
