@@ -107,11 +107,24 @@ class UIManager {
   }
 
   // Show decision/parsing phase in spinner
+  // Removed "Deciding" message - not needed, step spinner shows actual action
   showDecision() {
-    if (!this.currentSpinner) {
-      this.currentSpinner = spinner();
+    // No-op - don't show "Deciding" message
+    // The step spinner will show the actual action soon
+  }
+
+  // Stop spinner before user prompts
+  stopSpinner() {
+    if (this.currentSpinner) {
+      try {
+        if (typeof this.currentSpinner.stop === "function") {
+          (this.currentSpinner.stop as any)();
+        }
+      } catch (e) {
+        // Ignore errors - spinner might already be stopped
+      }
+      this.currentSpinner = null;
     }
-    this.currentSpinner.message("Deciding");
   }
 
   private formatActionName(action: string): string {

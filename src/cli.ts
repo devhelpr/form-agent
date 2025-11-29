@@ -338,6 +338,10 @@ async function handleOutputFile(
   let finalPath = filePath;
 
   if (exists) {
+    // Stop any active spinner before prompting user
+    const { ui } = await import("./utils/ui");
+    ui.stopSpinner();
+
     // Prompt user to override or generate unique name
     const shouldOverride = await confirm({
       message: `File ${outputFile} already exists. Overwrite it?`,
@@ -345,6 +349,7 @@ async function handleOutputFile(
     });
 
     if (isCancel(shouldOverride)) {
+      // Exit cleanly without showing additional messages
       process.exit(0);
     }
 
