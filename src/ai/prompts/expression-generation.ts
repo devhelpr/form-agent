@@ -5,6 +5,9 @@ Your task is to generate a valid expression string based on the user's descripti
 
 EXPRESSION SYNTAX:
 - Field references use: fieldId.value (e.g., "price.value", "quantity.value")
+- CRITICAL: Expressions MUST NOT use double curly braces {{}} - that syntax is ONLY for template variables in text components
+- CORRECT: "price.value * quantity.value"
+- WRONG: "{{price.value}} * {{quantity.value}}" or "{{price}} * {{quantity}}"
 - Supported functions (use without Math. prefix):
   * Math: round(), floor(), ceil(), abs(), min(), max(), sqrt(), pow()
   * Utility: parseFloat(), parseInt(), isNaN(), isFinite(), toString()

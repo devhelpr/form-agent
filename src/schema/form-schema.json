@@ -165,7 +165,9 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_]+$",
+          "description": "Array item ID - must not contain dashes, only alphanumeric characters and underscores"
         },
         "components": {
           "type": "array",
@@ -235,7 +237,9 @@
       "type": "object",
       "properties": {
         "id": {
-          "type": "string"
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_]+$",
+          "description": "Component ID (field name) - must not contain dashes, only alphanumeric characters and underscores"
         },
         "label": {
           "type": "string"

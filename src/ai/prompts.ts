@@ -123,6 +123,7 @@ WORKFLOW FOR FORM GENERATION:
 CRITICAL RULES:
 - Always validate generated JSON against the schema
 - Use simple, descriptive field IDs (e.g., "fullName", "email")
+- Field IDs MUST NOT contain dashes "-" - use underscores "_" or camelCase instead
 - Include appropriate validation rules and error messages
 - Add helperText to fields when it improves user experience
 - Use template variables {{fieldId}} for dynamic content

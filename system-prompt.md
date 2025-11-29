@@ -24,8 +24,11 @@ Important rules for UI/Form schema:
 6. For components:
    - Each component must have a unique ID and appropriate type
    - Use descriptive, simple field IDs that can be used directly in template variables
-     * GOOD: "fullName", "email", "phone", "heightCm", "smoker", "preExistingConditions"
-     * BAD: "applicant_full_name", "user-email", "healthData"
+     * GOOD: "fullName", "email", "phone", "heightCm", "smoker", "preExistingConditions", "sliderprice", "sliderquantity"
+     * BAD: "applicant_full_name", "user-email", "healthData", "slider-price", "slider-quantity"
+   - CRITICAL: Field IDs MUST NOT contain dashes "-" - use underscores "_" or camelCase instead
+     * Valid: "fullName", "email", "phone_number", "sliderprice", "sliderquantity"
+     * Invalid: "full-name", "user-email", "slider-price", "slider-quantity"
    - Use the correct component type based on functionality:
      - text: For displaying static text, summaries with template variables
      - input: For single-line text input (name, email, phone, etc.)
@@ -313,6 +316,9 @@ Important rules for UI/Form schema:
     - Expressions enable real-time calculations based on other form field values
     - Expression syntax supports field references, mathematical operations, and conditional logic
     - Field references use the pattern: fieldId.value (e.g., "price.value", "quantity.value")
+    - CRITICAL: Expressions MUST NOT use double curly braces {{}} - that syntax is ONLY for template variables in text components
+    - CORRECT: "price.value * quantity.value"
+    - WRONG: "{{price.value}} * {{quantity.value}}" or "{{price}} * {{quantity}}"
     - Supported functions (use without Math. prefix):
       * Math functions: round(), floor(), ceil(), abs(), min(), max(), sqrt(), pow()
       * Utility functions: parseFloat(), parseInt(), isNaN(), isFinite(), toString()

@@ -55,6 +55,9 @@ CRITICAL INSTRUCTIONS:
 1. Generate ONLY valid JSON - no markdown, no code blocks, no explanations
 2. The JSON must conform exactly to the schema at src/schema/form-schema.json
 3. Use simple, descriptive field IDs (e.g., "fullName", "email", not "user_full_name")
+   - Field IDs MUST NOT contain dashes "-" - use underscores "_" or camelCase instead
+   - Valid: "fullName", "email", "phone_number", "sliderprice", "sliderquantity"
+   - Invalid: "full-name", "user-email", "slider-price"
 4. Include validation rules with helpful error messages
 5. Add helperText to fields when it improves UX
 6. Use template variables {{fieldId}} for dynamic content in text components
@@ -114,7 +117,7 @@ EXAMPLE CORRECT INPUT COMPONENT:
 
 EXAMPLE CORRECT TEXT COMPONENT:
 {
-  "id": "text-welcome",
+  "id": "textWelcome",
   "type": "text",
   "label": "Welcome",
   "props": {
@@ -124,7 +127,7 @@ EXAMPLE CORRECT TEXT COMPONENT:
 
 EXAMPLE CORRECT BUTTON COMPONENT:
 {
-  "id": "submit-button",
+  "id": "submitButton",
   "type": "button",
   "label": "Submit"
 }
@@ -133,22 +136,30 @@ CRITICAL EXPRESSION STRUCTURE RULES:
 - Expressions MUST be inside "props.expression" object (NOT a top-level field)
 - Expressions MUST have "expression" (string) and "mode" (string) fields
 - Expression syntax uses fieldId.value (e.g., "slider1.value", NOT "{{slider1}}")
+- CRITICAL: Expressions MUST NOT use double curly braces {{}} - that syntax is ONLY for template variables
+- CORRECT expression: "sliderprice.value + sliderquantity.value"
+- WRONG expression: "{{sliderprice.value}} + {{sliderquantity.value}}" or "{{sliderprice}} + {{sliderquantity}}"
 - Template variables {{fieldId}} are ONLY for text components, NOT for expressions
 - Do NOT use "type": "expression" - that property does not exist
 - Always include "dependencies" array with all referenced field IDs
 
 EXAMPLE CORRECT CALCULATED FIELD WITH EXPRESSION:
 {
-  "id": "total",
+  "id": "sum",
   "type": "input",
-  "label": "Total",
+  "label": "Sum (Readonly)",
   "props": {
+    "inputType": "number",
     "readOnly": true,
-    "helperText": "Automatically calculated",
+    "helperText": "This field shows the sum of the two sliders above",
     "expression": {
-      "expression": "slider1.value + slider2.value",
+      "expression": "sliderprice.value + sliderquantity.value",
       "mode": "value",
-      "dependencies": ["slider1", "slider2"]
+      "dependencies": [
+        "sliderprice",
+        "sliderquantity"
+      ],
+      "evaluateOnChange": true
     }
   }
 }
