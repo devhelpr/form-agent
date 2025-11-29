@@ -17,10 +17,13 @@ export function isFatalSchemaError(error: unknown): boolean {
   const fatalErrorPatterns = [
     "invalid schema for response_format",
     "invalid schema",
+    "invalid json schema",
     "schema must be a json schema",
     "type: \"none\"",
     "response_format",
     "ai_apicallerror",
+    "ollamaerror",
+    "invalid format",
   ];
 
   return fatalErrorPatterns.some(

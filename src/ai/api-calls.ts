@@ -125,6 +125,7 @@ export async function makeAICall(
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
+      // Suppress step logging - UI will show progress
       log(
         logConfig,
         "step",
@@ -426,16 +427,32 @@ export async function makeAICall(
           }
         }
       } else {
-        log(
-          logConfig,
-          "step",
-          `${aiClient
-            .getProvider()
-            .toUpperCase()} API call attempt ${attempt} failed`,
-          {
-            error: errorMsg,
-          }
-        );
+        // Check if this is an Ollama-specific schema error
+        const isOllamaSchemaError =
+          aiClient.getProvider() === "ollama" &&
+          (errorMsg.toLowerCase().includes("invalid json schema") ||
+            errorMsg.toLowerCase().includes("invalid format") ||
+            errorMsg.toLowerCase().includes("ollamaerror"));
+
+        if (isOllamaSchemaError && attempt === maxRetries) {
+          // For Ollama, try using generateText as fallback since it may not support structured output
+          log(
+            logConfig,
+            "step",
+            `Ollama schema error detected - Ollama may not support structured output with this schema format`
+          );
+        } else {
+          log(
+            logConfig,
+            "step",
+            `${aiClient
+              .getProvider()
+              .toUpperCase()} API call attempt ${attempt} failed`,
+            {
+              error: errorMsg,
+            }
+          );
+        }
       }
 
       if (attempt === maxRetries) {

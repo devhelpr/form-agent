@@ -103,8 +103,10 @@ export function log(
   data?: any
 ) {
   // Check environment variables for logging control
+  // If config.enabled is false, completely disable console logging
   const consoleLoggingEnabled =
-    process.env.AGENT_CONSOLE_LOGGING !== "false" && config.enabled;
+    config.enabled === true &&
+    process.env.AGENT_CONSOLE_LOGGING !== "false";
   const fileLoggingEnabled =
     process.env.AGENT_FILE_LOGGING === "true" && config.fileLogging?.enabled;
 
@@ -117,8 +119,8 @@ export function log(
     const logLine = `[${timestamp}] [${category.toUpperCase()}] ${message}`;
     const dataLine = serializeLogData(data);
 
-    // Console logging (if enabled)
-    if (consoleLoggingEnabled) {
+    // Console logging (if enabled) - only if explicitly enabled
+    if (consoleLoggingEnabled && config.enabled === true) {
       if (category === "error") {
         console.error(`[${category.toUpperCase()}] ${message}`);
       } else {

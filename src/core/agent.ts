@@ -394,14 +394,19 @@ When ready to speak to the user, choose final_answer.
       // Get token statistics even on error
       const tokenStats = getTokenStats();
 
-      // Don't display token summary on error - keep UI clean
+      // Check if this is an Ollama schema error
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const isOllamaSchemaError =
+        errorMessage.toLowerCase().includes("invalid json schema") ||
+        errorMessage.toLowerCase().includes("invalid format") ||
+        errorMessage.toLowerCase().includes("ollamaerror");
 
       // Error is already recorded by withSpan's error handling and logError
       // Add error info to agent.run span via a nested span
       await withSpan("agent.error", async (errorSpan) => {
         if (errorSpan) {
           errorSpan.setAttribute("agent.error.step", step);
-          errorSpan.setAttribute("agent.error.type", "ai_call_failed");
+          errorSpan.setAttribute("agent.error.type", isOllamaSchemaError ? "ollama_schema_error" : "ai_call_failed");
           errorSpan.setAttribute("agent.error.message", String(error));
           errorSpan.setAttribute("agent.error.total_tokens", tokenStats.totalTokens);
           errorSpan.setAttribute("agent.error.total_calls", tokenStats.totalCalls);
@@ -410,6 +415,19 @@ When ready to speak to the user, choose final_answer.
           }
         }
       });
+
+      // Show user-friendly error message
+      if (isOllamaSchemaError) {
+        ui.showError(
+          "Ollama Schema Error",
+          `Ollama does not support the structured output format used by this agent.\n\nError: ${errorMessage}\n\nPlease use a different provider (OpenAI, Anthropic, or Google) for form generation, or use a simpler schema format with Ollama.`
+        );
+      } else {
+        ui.showError(
+          "API Call Failed",
+          `AI API call failed after all retries.\n\nError: ${errorMessage}`
+        );
+      }
 
       return {
         steps: step,
