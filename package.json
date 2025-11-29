@@ -28,7 +28,8 @@
     "execa": "^9.6.0",
     "fast-glob": "^3.3.3",
     "ts-morph": "^27.0.2",
-    "zod": "^4.1.8"
+    "zod": "^4.1.8",
+    "zod-to-json-schema": "^3.25.0"
   },
   "devDependencies": {
     "@types/node": "^24.7.1",
