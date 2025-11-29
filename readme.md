@@ -37,7 +37,11 @@ You can switch between providers using the `--provider` CLI option or by setting
 4. **run_cmd**: Execute shell commands
 5. **evaluate_work**: Analyze files and provide structured feedback for improvements
 6. **create_plan**: Create a structured execution plan for complex tasks
-7. **final_answer**: Complete the task and generate a summary
+7. **validate_form_json**: Validate JSON against form schema
+8. **generate_expression**: Generate expression for form field
+9. **generate_translations**: Generate translations for form
+10. **generate_form_json**: Generate complete form JSON (main form generation action)
+11. **final_answer**: Complete the task and generate a summary
 
 ## High-Level Agent Loop
 
@@ -62,6 +66,10 @@ flowchart TD
         L[run_cmd]
         M[evaluate_work]
         N[create_plan]
+        O[validate_form_json]
+        P[generate_expression]
+        Q[generate_translations]
+        R[generate_form_json]
     end
     
     E -.-> I
@@ -70,6 +78,10 @@ flowchart TD
     E -.-> L
     E -.-> M
     E -.-> N
+    E -.-> O
+    E -.-> P
+    E -.-> Q
+    E -.-> R
     
     style A fill:#e1f5fe
     style B fill:#fff3e0
@@ -87,6 +99,10 @@ flowchart TD
     style L fill:#f0f8ff
     style M fill:#f0f8ff
     style N fill:#f0f8ff
+    style O fill:#e1bee7
+    style P fill:#e1bee7
+    style Q fill:#e1bee7
+    style R fill:#e1bee7
 ```
 
 ## Detailed Architecture Diagram
@@ -118,6 +134,10 @@ flowchart TD
     L -->|run_cmd| P[Run Command Handler]
     L -->|evaluate_work| Q[Evaluate Work Handler]
     L -->|create_plan| S[Create Plan Handler]
+    L -->|validate_form_json| T1[Validate Form JSON Handler]
+    L -->|generate_expression| T2[Generate Expression Handler]
+    L -->|generate_translations| T3[Generate Translations Handler]
+    L -->|generate_form_json| T4[Generate Form JSON Handler]
     L -->|final_answer| T[Generate Summary with AI]
     L -->|unknown| U[Log Error & Add to Transcript]
     
@@ -126,8 +146,11 @@ flowchart TD
     O --> W{Check Write Limit}
     P --> X{Check Command Limit}
     Q --> Y[Analyze Files & Generate Structured Feedback]
-    R --> V
     S --> V
+    T1 --> V
+    T2 --> V
+    T3 --> V
+    T4 --> V
     U --> V
     
     W -->|Within Limit| V
@@ -153,7 +176,6 @@ flowchart TD
     style D fill:#fff3e0
     style D1 fill:#fff3e0
     style D2 fill:#fff3e0
-    style D3 fill:#fff3e0
     style AE fill:#c8e6c9
     style AF fill:#ffcdd2
     style F fill:#fff3e0
@@ -163,6 +185,10 @@ flowchart TD
     style AB fill:#e8f5e8
     style W fill:#fff9c4
     style X fill:#fff9c4
+    style T1 fill:#e1bee7
+    style T2 fill:#e1bee7
+    style T3 fill:#e1bee7
+    style T4 fill:#e1bee7
 ```
 
 ## CLI Usage
