@@ -2,11 +2,11 @@
 
 ## Overview
 
-This project is a simple coding agent implemented with an Agent Loop architecture.
+This project is a specialized AI agent for generating form JSON schemas, implemented with an Agent Loop architecture.
 
-It runs AI LLM calls in a loop using Vercel's AI SDK v5 and depending on the response, it can read files, search the repo, write patches, run commands, and evaluate work quality. The agent continues this loop until it reaches a final answer or a maximum number of iterations.
+The agent uses Vercel's AI SDK v5 to run AI LLM calls in a loop, generating valid JSON documents that conform to a form schema. It can read files, search the repository, validate generated JSON, generate expressions for calculated fields, create translations, and produce complete form JSON structures. The agent continues this loop until it reaches a final answer or a maximum number of iterations.
 
-It has OpenTelemetry-based observability for tracing using Jaeger.
+It includes OpenTelemetry-based observability for tracing using Jaeger.
 
 ## Supported AI Providers
 
@@ -21,27 +21,33 @@ You can switch between providers using the `--provider` CLI option or by setting
 
 ## Key Features
 
-- **Planning Phase**: Automatically analyzes project structure at startup and creates execution plans for complex tasks
-- **Manual Tool Calls**: Uses manual tool calls instead of OpenAI function calling for more control
-- **Full-File Patches**: Uses full-file format for all file modifications (complete file content replacement)
-- **Work Evaluation**: Built-in evaluation tool that analyzes created files and provides structured feedback with scores, strengths, improvements, and specific suggestions
-- **Iterative Workflow**: Agent follows a structured workflow: create → evaluate → improve with full-file patches → re-evaluate
+- **Form JSON Generation**: Specialized agent for generating valid JSON documents conforming to form schemas with pages, components, validation, and navigation
+- **Schema Validation**: Built-in validation tool that ensures generated JSON conforms to the form schema before completion
+- **Expression Generation**: Generate dynamic expressions for calculated fields, conditional visibility, and real-time form behavior
+- **Multi-Language Support**: Generate translations for forms in multiple languages with automatic language handling
+- **Planning Phase**: Automatically analyzes project structure at startup and creates execution plans for complex form generation tasks
+- **Manual Tool Calls**: Uses manual tool calls instead of OpenAI function calling for more control over the generation process
+- **Work Evaluation**: Built-in evaluation tool that analyzes generated forms and provides structured feedback with scores, strengths, improvements, and specific suggestions
+- **Iterative Workflow**: Agent follows a structured workflow: generate → validate → improve → re-validate until the form meets requirements
 - **Multi-Provider Support**: Seamlessly switch between OpenAI, Anthropic, Google, and Ollama providers
 - **Observability**: OpenTelemetry-based tracing with Jaeger integration for monitoring agent execution and debugging
 
 ## Tools Available
 
-1. **read_files**: Read and analyze existing files
-2. **search_repo**: Search the repository for patterns or content
-3. **write_patch**: Apply patches using full-file format (complete file content replacement)
-4. **run_cmd**: Execute shell commands
-5. **evaluate_work**: Analyze files and provide structured feedback for improvements
-6. **create_plan**: Create a structured execution plan for complex tasks
-7. **validate_form_json**: Validate JSON against form schema
-8. **generate_expression**: Generate expression for form field
-9. **generate_translations**: Generate translations for form
-10. **generate_form_json**: Generate complete form JSON (main form generation action)
-11. **final_answer**: Complete the task and generate a summary
+### Form Generation Tools (Primary)
+1. **generate_form_json**: Generate complete form JSON from user requirements (main form generation action)
+2. **validate_form_json**: Validate generated JSON against the form schema to ensure compliance
+3. **generate_expression**: Generate dynamic expressions for calculated fields, conditional visibility, validation, and other form behaviors
+4. **generate_translations**: Generate translations for forms in multiple target languages
+
+### Supporting Tools
+5. **read_files**: Read and analyze existing files (schema files, examples, etc.)
+6. **search_repo**: Search the repository for patterns, examples, or related content
+7. **create_plan**: Create a structured execution plan for complex form generation tasks
+8. **evaluate_work**: Analyze generated forms and provide structured feedback with scores, strengths, and improvement suggestions
+9. **write_patch**: Apply patches using full-file format (for modifying generated forms or other files)
+10. **run_cmd**: Execute shell commands (for testing, validation, etc.)
+11. **final_answer**: Complete the task and generate a summary with the final form JSON
 
 ## High-Level Agent Loop
 
